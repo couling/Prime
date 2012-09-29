@@ -94,6 +94,7 @@ void initializeSelf() {
 		startValue = value;
 	}
 	else {
+		if (!(startValue & 1)) ++startValue;
 		while (primes[maxUsable] * primes[maxUsable] < startValue) ++maxUsable;
 	}
 
@@ -119,6 +120,7 @@ void process() {
         fprintf(stderr, "%s Checking against %d primes - max %lld - checking value %lld\n",
             timeNow, maxUsable, primes[maxUsable-1], value);
         while (value < nextPrimeRequired) {
+			if (value >= endValue) break;
             int i=0;
             while (i<maxUsable && value % primes[i] ) ++i;
             if (i == maxUsable) printf("%lld\n", value);

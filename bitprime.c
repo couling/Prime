@@ -142,7 +142,7 @@ void initializeSelf() {
 
     free(bitmap);
 
-    fprintf(stderr,"%s Prime array now full with %d primes\n", timeNow(), primeCount);
+    fprintf(stderr,"%s Prime array now full with %zd primes\n", timeNow(), primeCount);
 }
 
 

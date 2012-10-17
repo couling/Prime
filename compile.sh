@@ -1,5 +1,5 @@
 #!/bin/sh
-
-gcc -std=c99 -O3 -o prime bitprime.c
+ 
+gcc -Werror -std=c99 -O3 -s -o prime bitprime.c
 
 exit $?

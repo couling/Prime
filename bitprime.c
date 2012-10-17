@@ -67,13 +67,10 @@ void * reallocSafe(void * existing, size_t bytes) {
 
 
 void applyPrime(long long prime, long long offset, unsigned char * map, size_t mapSize) {
-    long long value;
-    if (prime < offset) {
+    long long value = (prime * prime) - offset;
+    if (value < 0) {
         value = prime - ((offset - 1) % prime) - 1;
         if (!(value & 1)) value += prime;
-    }
-    else {
-        value = (prime * prime) - offset;
     }
     long long stepSize = prime << 1;
     long long applyTo = ((long long) mapSize) << 4;

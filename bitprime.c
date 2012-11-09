@@ -7,7 +7,9 @@
 
 //#define VERBOSE_DEBUG
 
-#define ALLOC_UNIT 1024
+#define ALLOC_UNIT 0x200000
+#define APPLY_DEBUG_MASK 0x3FFFF
+#define SCAN_DEBUG_MASK 0x1FFFFFF
 
 // Config parameters
 char * * files;
@@ -204,7 +206,7 @@ void process(long long from, long long to, FILE * file) {
 
     for (size_t i = 0; i < primeCount; ++i) {
         #ifndef VERBOSE_DEBUG
-        if (!(i & 0x7FF)) {
+        if (!(i & APPLY_DEBUG_MASK)) {
         #endif
             fprintf(stderr, "%s Applying primes %02.2f%% (%zd of %zd [%lld])\n", 
                 timeNow(), 100 * ((double)i) / ((double)primeCount),i+1, primeCount, primes[i]);
@@ -217,7 +219,7 @@ void process(long long from, long long to, FILE * file) {
 
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
-        if (!(i & 0x3FFFFF)) {
+        if (!(i & SCAN_DEBUG_MASK)) {
             fprintf(stderr, "%s Scanning for new primes %02.2f%%\n", 
                 timeNow(), 100 * ((double) i)/((double) range));
         }

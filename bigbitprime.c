@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include <getopt.h>
-#include <string.h>
-#include <errno.h>
+#include <gmp.h>
+
+#include "primeshared.h"
+#include "primegmp.h"
 
 //#define VERBOSE_DEBUG
 
@@ -14,56 +13,37 @@
 // Config parameters
 char * * files;
 int fileCount;
-long long startValue = 0;
-long long endValue = 1000000000ll;
-long long chunkSize = 1000000000ll;
+Prime startValue;
+Prime endValue;
+Prime chunkSize;
 
-char * fileDir = ".";
-char * filePrefix = "prime.";
-char * fileSuffix = ".txt";
-char * fileInfix = "-";
-char fileLabelType = 'g';
-int useStdout = 1;
+char * fileDir;
+char * filePrefix;
+char * fileSuffix;
+char * fileInfix;
+char fileLabelType;
 
-size_t primeCount;                 // Number of primes stored
-long long * primes;                // The array of primes
+int useStdout;
+
+size_t primeCount;             // Number of primes stored
+Prime * primes;                // The array of primes
 
 unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
 unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
 
 
 
-char * timeNow() {
-    time_t rawtime;
-    struct tm * timeinfo;
-    time ( &rawtime );
-    timeinfo = localtime ( &rawtime );
-    static char t[100];
-    strftime (t,100,"%a %b %d %H:%M:%S %Y",timeinfo);
-    return t;
-}
 
-
-
-void exitError(int returnCode, int lerrno) {
-    fprintf(stderr, "%s Error: %s\n", timeNow(), strerror(lerrno));
-    exit(returnCode);
-} 
-
-
-
-void * mallocSafe(size_t bytes) {
-    void * result = malloc(bytes);
-    if (!result) exitError(255, errno);
-    return result;
-}
-
-
-
-void * reallocSafe(void * existing, size_t bytes) {
-    void * result = realloc(existing, bytes);
-    if (!result) exitError(255, errno);
-    return result;
+// Down to here
+void printValue(FILE * file, Prime value) {
+    char buffer[PRIME_SIZE_STRING+1];
+    prime_to_str(buffer, value);
+    if (fprintf(file,"%s\n",buffer) < 0) {
+        int lerrno = errno;
+        fprintf(stderr, "%s Error: Failed to write prime number (%lld)\n",
+            timeNow(), value);
+        exitError(2, lerrno);
+    }
 }
 
 
@@ -165,16 +145,6 @@ void finalFile() {
     // Can never get here as files aren't implemented
 }
 
-
-
-void printValue(FILE * file, long long value) {
-    if (fprintf(file,"%lld\n",value) < 0) {
-        int lerrno = errno;
-        fprintf(stderr, "%s Error: Failed to write prime number (%lld)\n",
-            timeNow(), value);
-        exitError(2, lerrno);
-    }
-}
 
 
 void process(long long from, long long to, FILE * file) {
@@ -313,6 +283,18 @@ void processAll() {
 
 
 void parseArgs(int argC, char ** argV) {    
+    // Defaults:
+    startValue = 0;
+    endValue = 1000000000ll;
+    chunkSize = 1000000000ll;
+    
+    fileDir = ".";
+    filePrefix = "prime.";
+    fileSuffix = ".txt";
+    fileInfix = "-";
+    fileLabelType = 'g';
+    
+    useStdout = 0;
 
     static struct option longOptions[] =
              {
@@ -333,7 +315,8 @@ void parseArgs(int argC, char ** argV) {
                {"stdout", no_argument, 0, 's'},
                {"file", no_argument, 0, 'f'},
                {0, 0, 0, 0}
-             };    
+             };
+
     static char * shortOptions ="O:o:K:k:M:m:G:g:C:c:p:s:Sf";
 
     int givenOption;
@@ -427,3 +410,5 @@ int main(int argC, char ** argV) {
     return 0;
 }
 
+// Must test tring to Prime.
+// Must test if zero is needed before Div.

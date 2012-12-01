@@ -4,6 +4,17 @@
 #include <getopt.h>
 #include <string.h>
 #include <errno.h>
+#include <gmp.h>
+
+
+
+// gmp
+typedef mp_limb_t Prime[PRIME_SIZE];
+typedef mp_limb_t * ptPrime;
+
+
+
+
 
 //#define VERBOSE_DEBUG
 

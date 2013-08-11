@@ -1,5 +1,4 @@
 #include <getopt.h>
-#include <gmp.h>
 
 #include "primeshared.h"
 #include "primegmp.h"

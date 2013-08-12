@@ -33,7 +33,6 @@ unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x
 
 
 
-// Down to here
 void printValue(FILE * file, Prime value) {
     char buffer[PRIME_SIZE_STRING+1];
     prime_to_str(buffer, value);

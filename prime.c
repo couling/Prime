@@ -1,3 +1,16 @@
+/* 
+
+Copyright Philip Couling
+All rights reserved.
+
+This is an early version of prime finding.  It's pretty slow.
+It uses division - dividing each potential new prime by those primes smaller
+than the number's square root.
+
+This was obsoleted by bitprime.c
+
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

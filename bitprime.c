@@ -1,3 +1,21 @@
+/* 
+
+Copyright Philip Couling
+All rights reserved.
+
+This is a later version of prime finding and uses my bitprime technique (hence the name).
+It represents a block of numbers as bits -e ach bit represents an odd number since beyond 2
+no even number can be even.
+
+It then takes numbers smaller than the square root of block's largest value and successivly
+removes all numbers that prime is a factor of from the bit mask.
+
+It then scans the bitmask 16bits at a time to find which numbers are prime.
+
+This was obsoleted by bitprime.c
+
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

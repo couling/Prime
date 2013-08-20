@@ -38,3 +38,18 @@ void * reallocSafe(void * existing, size_t bytes) {
     if (!result) exitError(255, errno);
     return result;
 }
+
+
+
+void writePrimeRaw(FILE * file, unsigned char * buffer,  size_t mapSize, Prime offset) {
+}
+
+
+
+void writePrimeText(FILE * file, unsigned char * buffer,  size_t mapSize, Prime offset) {
+}
+
+
+
+void writePrimePrime(FILE * file, unsigned char * buffer,  size_t mapSize, Prime offset) {
+}

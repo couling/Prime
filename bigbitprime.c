@@ -1,4 +1,6 @@
 #include <getopt.h>
+#include <stdio.h>
+#include <errno.h>
 
 #include "primeshared.h"
 #include "primegmp.h"
@@ -32,54 +34,96 @@ unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x
 
 
 
-
 void printValue(FILE * file, Prime value) {
-    char buffer[PRIME_SIZE_STRING+1];
+    char buffer[PRIME_STRING_SIZE];
     prime_to_str(buffer, value);
     if (fprintf(file,"%s\n",buffer) < 0) {
         int lerrno = errno;
-        fprintf(stderr, "%s Error: Failed to write prime number (%lld)\n",
-            timeNow(), value);
+        fprintf(stderr, "%s Error: Failed to write prime number (%s)\n",
+            timeNow(), buffer);
         exitError(2, lerrno);
     }
 }
 
 
 
-void applyPrime(long long prime, long long offset, unsigned char * map, size_t mapSize) {
-    long long value = (prime * prime) - offset;
-    if (value < 0) {
+void applyPrime(Prime prime, Prime offset, unsigned char * map, mp_limb_t mapSize) {
+    Prime value;
+    Prime tmpValue1[2], tmpValue2[2]; // We spec this as an array of two so that it can overflow without error.
+
+    //  value = (prime ^ 2) - offset;
+    prime_sqr(value, prime);                          // prime ^ 2
+    prime_sub_prime(value, value, offset);            //  - offset
+    /*if (value < 0) {
         value = prime - ((offset - 1) % prime) - 1;
         if (!(value & 1)) value += prime;
+    }*/
+    if (prime_lt_zero(value)) {
+	    // Find the first multiple of Prime which exists within the block
+        prime_sub_num(value, offset, 1);              // offset -1
+        prime_mod(value, value, prime);               // ... % prime
+		prime_sub_prime(value, prime, value);         // prime - ...
+		prime_sub_num(value, value, 1);               // ... - 1
+		// We only work with odd numbers, so if the first multiple is even 
+		// we want the second multiple which will be odd
+		// (we never use 2 as a Prime here and all other prime numbers are odd)
+		if (prime_is_odd(value)) {                    //  if (!(value & 1))
+		    prime_add_prime(value, value, prime);     //      value += prime
+		}
     }
-    long long stepSize = prime << 1;
-    long long applyTo = ((long long) mapSize) << 4;
-    while (value < applyTo) {
-        #ifdef VERBOSE_DEBUG
-        fprintf(stderr,"%s prime = %lld, value = %lld, map[%lld] = %.2X, "
-            "removeMask[%d] = %.2X, result = %.2X, offset = %lld\n", 
-            timeNow(), prime, value, value >> 4, (int) map[value >> 4], (int) value & 0x0F, 
-            (int) removeMask[value & 0x0F], (int)(map[value >> 4] & removeMask[value & 0x0F]),
-            offset);
-        #endif
-        map[value >> 4] &= removeMask[value & 0x0F];
+	Prime stepSize;
+	Prime applyTo;
+	// stepSize = prime * 2
+	prime_left_shift(stepSize, prime, 1);
+	// applyTo = mapSize * 16;
+	prime_set_num(applyTo, mapSize);
+	prime_left_shift(applyTo, applyTo, 4);
+	/*while (value < applyTo) {
+	    map[value >> 4] &= removeMask[value & 0x0F];
         value += stepSize;
+	}*/
+    while (prime_lt(value,applyTo)) {
+        #ifdef VERBOSE_DEBUG
+			char primeAsString[PRIME_STRING_SIZE];
+			prime_to_str(primeAsString, prime);
+			char valueAsString[PRIME_STRING_SIZE];
+			prime_to_str(valueAsString, value);
+			char offsetAsString[PRIME_STRING_SIZE];
+			prime_to_str(offsetAsString, offset);
+			fprintf(stderr,"%s prime = %s, value = %s, map[%lld] = %.2X, "
+				"removeMask[%d] = %.2X, result = %.2X, offset = %lld\n", 
+				timeNow(), primeAsString, valueAsString, 
+				(long long)( value[0] >> 4 ) | ( ( value[1] << ((sizeof(mp_limb_t) * 8) - 4) ), 
+				(int) map[ ( value[0] >> 4 ) | ( ( value[1] << ((sizeof(mp_limb_t) * 8) - 4) ) ], 
+				(int) value[0] & 0x0F, 
+				(int) removeMask[value[0] & 0x0F], 
+				(int)(map[ ( value[0] >> 4 ) | ( ( value[1] << ((sizeof(mp_limb_t) * 8) - 4) ) ] & removeMask[value[0] & 0x0F]),
+				offsetAsString);
+        #endif
+		// The map byte located with the most segnificant n-4 bits with the least segnificant 4
+        map[ ( value[0] >> 4 ) | ( ( value[1] << ((sizeof(mp_limb_t) * 8) - 4) ) ] &= removeMask[value[0] & 0x0F];
+		prime_add_prime(value, value, stepSize);
     }
 }
 
 
-
+// Here
 void initializeSelf() {
-    fprintf(stderr, "%s Running Self initialisation for %lld (inc) to %lld (ex)\n", 
-        timeNow(), startValue, endValue);
+    char startValueString[PRIME_STRING_SIZE];
+	prime_to_str(startValueString, startValue);
+	char endValueString[PRIME_STRING_SIZE];
+	prime_to_str(endValueString, endValue);
+    fprintf(stderr, "%s Running Self initialisation for %s (inc) to %s (ex)\n", 
+        timeNow(), startValueString, endValueString);
 
     size_t primesAllocated = ALLOC_UNIT;
-    primes = mallocSafe(primesAllocated * sizeof(long long));
+    primes = mallocSafe(primesAllocated * sizeof(Prime));
     size_t range = ALLOC_UNIT;
     unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
     memset(bitmap, 0xFF, range);
 
-    long long value=3ll;
+    Prime value;
+	prime_set_num(value,3);
     primeCount = 0;
 
     while (1) {
@@ -157,7 +201,7 @@ void process(long long from, long long to, FILE * file) {
     }
     else {
         // Process expects to aligned to a even number.
-        // If it's odd start a number earlier, the even can never be found
+        // If it's odd start a number earlier, the even can never be a prime
         // so it doesn't matter that we start on it.
         if (from & 0x1) --from;
     }

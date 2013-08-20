@@ -21,6 +21,13 @@ for each time a prime is touched it uses addition and not division.
 #include <string.h>
 #include <errno.h>
 
+// For memory mapping a file
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
 //#define VERBOSE_DEBUG
 
 #define ALLOC_UNIT 0x200000
@@ -30,9 +37,19 @@ for each time a prime is touched it uses addition and not division.
 // Config parameters
 char * * files;
 int fileCount;
+
+struct FileHandle {
+	char * fileName;
+	int handle;
+	struct stat statBuffer;
+} * fileHandles;
+
 long long startValue = 0;
 long long endValue = 1000000000ll;
 long long chunkSize = 1000000000ll;
+
+long long threadCount = 1; // threadCount and threadNum have no reason to be longlong
+long long threadNum = 0;   // other than it makes the input easy.
 
 char * fileDir = ".";
 char * filePrefix = "prime.";
@@ -40,6 +57,7 @@ char * fileSuffix = ".txt";
 char * fileInfix = "-";
 char fileLabelType = 'g';
 int useStdout = 1;
+int initializeOnly = 0;
 
 size_t primeCount;                 // Number of primes stored
 long long * primes;                // The array of primes
@@ -169,16 +187,83 @@ void finalSelf() {
 
 
 void initializeFromFile() {
-    fprintf(stderr, "%s Initialization from file has not yet been implemented\n", 
-        timeNow(), startValue, endValue);
-    exit(1);
+	if (fileCount > 1) {
+    		fprintf(stderr, "%s Error: Initialization from multiple files has not yet been implemented\n", 
+        		timeNow());
+    		exit(1);
+	}
+
+	fileHandles = mallocSafe(sizeof(struct FileHandle) * 1); // there can be only one.
+
+	fileHandles[0].fileName = files[0];
+	fileHandles[0].handle = open(files[0], O_RDONLY);
+	if (fileHandles[0].handle < 0) {
+		int lerrno = errno;
+		fprintf(stderr, "%s Error: failed to open file %s\n", timeNow(), files[0]);
+		exitError(1, lerrno);
+	}
+
+	if ( fstat(fileHandles[0].handle, &(fileHandles[0].statBuffer)) < 0 ) {
+		int lerrno = errno;
+        	fprintf(stderr, "%s Error: failed to stat file %s\n", timeNow(), files[0]);
+        	exitError(1, lerrno);
+	}
+
+	if ( fileHandles[0].statBuffer.st_size % sizeof(long long) ) {
+		int lerrno = errno;
+		fprintf(stderr, "%s Error: unexpected file length %s (%lld) this should be divisible by %zd.\n", timeNow(), files[0], (long long)(fileHandles[0].statBuffer.st_size),sizeof(long long));
+        	exitError(1, lerrno);
+	}
+
+	primes = mmap(0, fileHandles[0].statBuffer.st_size, PROT_READ, MAP_SHARED, fileHandles[0].handle, 0);
+	if (primes == MAP_FAILED) {
+		int lerrno = errno;
+        	fprintf(stderr, "%s Error: failed to memory map file. Is this a regular file %s\n", timeNow(), files[0]);
+        	exitError(1, lerrno);
+	}
+
+   
+	primeCount = fileHandles[0].statBuffer.st_size / sizeof(long long);
+	
+	fprintf(stderr, "%s File memory mapped (%s) ... checking file\n",
+        timeNow(), files[0]);
+
+	if (primes[0] != 3ll) {
+		fprintf(stderr,"%s Error: primes[0] is not 3 in %s. Is this a prime initialization file?\n",
+			timeNow(), files[0]);
+	}
+
+	for (size_t i = 1; i < primeCount; ++i) {
+		if (primes[i] <= primes[i-1]) {
+			fprintf(stderr, "%s Error: primes[%zd] (%lld) is out of sequence with primes[%zd] (%lld) in %s. Is this a prime initialization file?\n", 
+				timeNow(), i-1, primes[i-1], i, primes[i], files[0]);
+			exit(1);
+		}
+		if (!(primes[i] & 1ll)) {
+			fprintf(stderr, "%s Error: primes[%zd] (%lld) is even. Is this a prime initialization file?\n", 
+				timeNow(), i, primes[i], files[0]);
+			exit(1);
+		}
+	}
+	fprintf(stderr, "%s File checks passed (%s)\n",
+        timeNow(), files[0]);
 }
 
 
 
 
 void finalFile() {
-    // Can never get here as files aren't implemented
+	if ( munmap( primes, fileHandles[0].statBuffer.st_size) ) {
+		int lerrno = errno;
+		fprintf(stderr, "%s Error: failed to unmap file %s\n", timeNow(), files[0]);
+		exitError(1, lerrno);
+	}
+
+	if ( close(fileHandles[0].handle) ) {
+		int lerrno = errno;
+		fprintf(stderr, "%s Error: failed to close file %s\n", timeNow(), files[0]);
+		exitError(1, lerrno);
+	}
 }
 
 
@@ -313,16 +398,43 @@ void processToFile(long long from, long long to) {
 
 
 
+void writeInitializationFile() {
+	char fileName[FILENAME_MAX];
+    snprintf(fileName, FILENAME_MAX,"%s/%sG%04lld%s",
+        fileDir,filePrefix,endValue/1000000000,fileSuffix);
+	FILE * file = fopen(fileName, "wx");	
+	if (!file) exitError(2, errno);
+	
+	
+    fprintf(stderr, "%s Writing initialisation to file %s\n",
+	        timeNow(), fileName);
+	fwrite(primes, sizeof(long long), primeCount, file);
+	
+
+    if (fclose(file)) {
+        int lerrno = errno;
+        fprintf(stderr, "%s Error: closing prime file reported error "
+            "contents may have been truncated. \n%s Error: filename %s\n",
+            timeNow(), timeNow(), fileName);
+        exitError(2, lerrno);
+     }
+
+}
+
+
+
 void processAll() {
     long long from = startValue;
     long long to = startValue - (startValue % chunkSize) + chunkSize;
+	long long chunkNum = 0;
     while (to < endValue) {
-        processToFile(from, to);
+        if (chunkNum % threadCount == threadNum) processToFile(from, to);
         from = to;
         to += chunkSize;
+		chunkNum++;
     }
     if (from < endValue) {
-        processToFile(from, endValue);
+        if (chunkNum % threadCount == threadNum) processToFile(from, endValue);
     }
 }
 
@@ -342,15 +454,18 @@ void parseArgs(int argC, char ** argV) {
                {"end-billion",  required_argument, 0, 'G'},
                {"chunk-million", required_argument, 0, 'c'},
                {"chunk-billion", required_argument, 0, 'C'},
+			   {"thread-count", required_argument, 0, 'T'},
+			   {"thread-num", required_argument, 0, 't'},
                {"prefix", required_argument, 0, 1000},
                {"suffix", required_argument, 0, 1001},
                {"infix", required_argument, 0, 1002},
                {"dir", required_argument, 0, 1003},
                {"stdout", no_argument, 0, 's'},
                {"file", no_argument, 0, 'f'},
+			   {"initialize-only", no_argument, 0, 'i'},
                {0, 0, 0, 0}
              };    
-    static char * shortOptions ="O:o:K:k:M:m:G:g:C:c:p:s:Sf";
+    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:s:Sfi";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -369,12 +484,15 @@ void parseArgs(int argC, char ** argV) {
             case 'G': scale = 1000000000ll; number =  'e'; break;
             case 'c': scale = 1000000ll; number = 'c'; fileLabelType = 'm'; break;
             case 'C': scale = 1000000000ll; number = 'c'; fileLabelType = 'g'; break;
+			case 't': number = 't'; break;
+			case 'T': number = 'T'; break;
             case 1000: filePrefix = optarg; break;
             case 1001: fileSuffix = optarg; break;
             case 1002: fileInfix = optarg; break;
             case 1003: fileDir = optarg; break;
             case 's': useStdout = 1; break;
             case 'f': useStdout = 0; break;
+			case 'i': initializeOnly = 1; break;
             case '?': 
                 if (optopt) {
                     fprintf(stderr, "%s Error: option -%c\n", 
@@ -409,20 +527,43 @@ void parseArgs(int argC, char ** argV) {
                 }
                 chunkSize = value * scale;
             }
+			else if (number == 't') threadNum = value - 1;
+			else if (number == 'T') threadCount = value;
         }
     }
+
+	int errorFlag = 0;
 
     if (endValue <= startValue) {
        fprintf(stderr, "%s Error: end value (%lld) is not larger than start value (%lld).\n", 
            timeNow(), endValue, startValue);
-       exit(1);
+	   errorFlag = 1;
     }
 
     if (strchr(filePrefix, '/') || strchr(fileInfix, '/') || strchr(fileSuffix, '/')) {
        fprintf(stderr, "%s Error: '/' found in file name, directories MUST be specified using --dir\n", 
            timeNow(), endValue, startValue);
-       exit(1);
+       errorFlag = 1;
     }
+
+	if (threadCount < 1) {
+		fprintf(stderr, "%s Error: invalid thread-count (%lld). Must be 1 or more.\n",
+			timeNow(), threadCount);
+		errorFlag = 1;
+	}
+
+	if (threadNum < 0 || threadNum >= threadCount) {
+		fprintf(stderr, "%s Error: invalud thread-num (%lld).  Must be between 1 and thread-count (%lld).\n",
+			timeNow(), threadNum+1, threadCount);
+		errorFlag = 1;
+	}
+
+	if (threadCount > 1 && useStdout) {
+		fprintf(stderr, "%s Warning: Using thread-count > 1 (multithreading) on the stdout will not produce contiguous primes.\n"
+		"%s Warning: Recommend using --file or manually dividing threads by range (-g and -G).\n", timeNow(), timeNow());
+	}
+
+	if (errorFlag) exit(1);
 
     fileCount = optind - argC;
     files = argV + optind;
@@ -433,12 +574,13 @@ void parseArgs(int argC, char ** argV) {
 int main(int argC, char ** argV) {
     parseArgs(argC, argV);
 
-    if (fileCount == 0) initializeSelf();
+    if (fileCount == 0 || initializeOnly) initializeSelf();
     else initializeFromFile();
 
-    processAll();
+	if (initializeOnly) writeInitializationFile();
+    else processAll();
     
-    if (fileCount == 0) finalSelf();
+    if (fileCount == 0 || initializeOnly) finalSelf();
     else finalFile();
     return 0;
 }

@@ -22,11 +22,12 @@ for each time a prime is touched it uses addition and not division.
 #include <errno.h>
 
 // For memory mapping a file
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 //#define VERBOSE_DEBUG
 
@@ -50,6 +51,10 @@ long long chunkSize = 1000000000ll;
 
 long long threadCount = 1; // threadCount and threadNum have no reason to be longlong
 long long threadNum = 0;   // other than it makes the input easy.
+int singleThread = 0;
+
+int verbose = 0;
+int silent = 0;
 
 char * fileDir = ".";
 char * filePrefix = "prime.";
@@ -112,7 +117,7 @@ void applyPrime(long long prime, long long offset, unsigned char * map, size_t m
     long long applyTo = ((long long) mapSize) << 4;
     while (value < applyTo) {
         #ifdef VERBOSE_DEBUG
-        fprintf(stderr,"%s prime = %lld, value = %lld, map[%lld] = %.2X, "
+        if (verbose) fprintf(stderr,"%s prime = %lld, value = %lld, map[%lld] = %.2X, "
             "removeMask[%d] = %.2X, result = %.2X, offset = %lld\n", 
             timeNow(), prime, value, value >> 4, (int) map[value >> 4], (int) value & 0x0F, 
             (int) removeMask[value & 0x0F], (int)(map[value >> 4] & removeMask[value & 0x0F]),
@@ -126,7 +131,7 @@ void applyPrime(long long prime, long long offset, unsigned char * map, size_t m
 
 
 void initializeSelf() {
-    fprintf(stderr, "%s Running Self initialisation for %lld (inc) to %lld (ex)\n", 
+    if (!silent) fprintf(stderr, "%s Running Self initialisation for %lld (inc) to %lld (ex)\n", 
         timeNow(), startValue, endValue);
 
     size_t primesAllocated = ALLOC_UNIT;
@@ -144,7 +149,7 @@ void initializeSelf() {
             if (bitmap[value >> 4] & checkMask[value & 0x0F]) {
                 applyPrime(value, 0, bitmap, range);
                 if (primeCount == primesAllocated) {
-                    fprintf(stderr,"%s Initialized %zd primes, reached value %lld (ex)\n", 
+                    if (verbose) fprintf(stderr,"%s Initialized %zd primes, reached value %lld (ex)\n", 
                         timeNow(), primeCount, value);
                     primesAllocated += ALLOC_UNIT;
                     primes = reallocSafe(primes, primesAllocated * sizeof(long long));
@@ -155,7 +160,7 @@ void initializeSelf() {
             }
             #ifdef VERBOSE_DEBUG
             else {
-                fprintf(stderr,"%s Ruled out %lld due to bitmap[%d] = %d and checkMask[%d] = %d\n", 
+                if (verbose) fprintf(stderr,"%s Ruled out %lld due to bitmap[%d] = %d and checkMask[%d] = %d\n", 
                     timeNow(), value, (int) value >> 4, (int)bitmap[value >> 4], 
                     (int)value & 0x0F, (int)checkMask[value & 0x0F]);
             }
@@ -175,7 +180,7 @@ void initializeSelf() {
 
     free(bitmap);
 
-    fprintf(stderr,"%s Prime array now full with %zd primes\n", timeNow(), primeCount);
+    if (!silent) fprintf(stderr,"%s Prime array now full with %zd primes\n", timeNow(), primeCount);
 }
 
 
@@ -194,6 +199,8 @@ void initializeFromFile() {
 	}
 
 	fileHandles = mallocSafe(sizeof(struct FileHandle) * 1); // there can be only one.
+
+        if (!silent) fprintf(stderr, "%s Initializing from file (%s)\n",timeNow(), files[0]);
 
 	fileHandles[0].fileName = files[0];
 	fileHandles[0].handle = open(files[0], O_RDONLY);
@@ -225,7 +232,7 @@ void initializeFromFile() {
    
 	primeCount = fileHandles[0].statBuffer.st_size / sizeof(long long);
 	
-	fprintf(stderr, "%s File memory mapped (%s) ... checking file\n",
+	if (verbose) fprintf(stderr, "%s File memory mapped (%s) ... checking file\n",
         timeNow(), files[0]);
 
 	if (primes[0] != 3ll) {
@@ -245,7 +252,14 @@ void initializeFromFile() {
 			exit(1);
 		}
 	}
-	fprintf(stderr, "%s File checks passed (%s)\n",
+
+	if (primes[primeCount-1] * primes[primeCount-1] < endValue) {
+		fprintf(stderr, "%s Error: Prime initialisation file does not contain large enough primes.\n %s is only large enough for primes up to %lld\n", 
+			timeNow(),files[0],primes[primeCount-1] * primes[primeCount-1] );
+		exit(1);
+	}
+
+	if (verbose) fprintf(stderr, "%s File checks passed (%s)\n",
         timeNow(), files[0]);
 }
 
@@ -279,7 +293,7 @@ void printValue(FILE * file, long long value) {
 
 
 void process(long long from, long long to, FILE * file) {
-    fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", 
+    if (!silent) fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", 
         timeNow(), from, to);
     if (from <= 2 && to > 2) printValue(file,2ll);
 
@@ -296,32 +310,34 @@ void process(long long from, long long to, FILE * file) {
     }
     
     size_t range = (to - from + 0x0F) >> 4;
-    fprintf(stderr, "%s Bitmap will contain %zd bytes\n", 
+    if (verbose) fprintf(stderr, "%s Bitmap will contain %zd bytes\n", 
         timeNow(), range);
 
     unsigned char * bitmap = mallocSafe(range);
     memset(bitmap, 0xFF, range);
 
-    fprintf(stderr, "%s Applying all primes\n", 
+    if (verbose) fprintf(stderr, "%s Applying all primes\n", 
         timeNow(), from, to);
 
     for (size_t i = 0; i < primeCount; ++i) {
-        #ifndef VERBOSE_DEBUG
-        if (!(i & APPLY_DEBUG_MASK)) {
-        #endif
-            fprintf(stderr, "%s Applying primes %02.2f%% (%zd of %zd [%lld])\n", 
-                timeNow(), 100 * ((double)i) / ((double)primeCount),i+1, primeCount, primes[i]);
-        #ifndef VERBOSE_DEBUG
+        if (verbose) {
+            #ifndef VERBOSE_DEBUG
+            if (!(i & APPLY_DEBUG_MASK)) {
+            #endif
+                fprintf(stderr, "%s Applying primes %02.2f%% (%zd of %zd [%lld])\n", 
+                    timeNow(), 100 * ((double)i) / ((double)primeCount),i+1, primeCount, primes[i]);
+            #ifndef VERBOSE_DEBUG
 
+            }
+            #endif
         }
-        #endif
 	applyPrime(primes[i], from, bitmap, range);
     }
 
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
         if (!(i & SCAN_DEBUG_MASK)) {
-            fprintf(stderr, "%s Scanning for new primes %02.2f%%\n", 
+            if (verbose) fprintf(stderr, "%s Scanning for new primes %02.2f%%\n", 
                 timeNow(), 100 * ((double) i)/((double) range));
         }
         if (bitmap[i]) {
@@ -329,7 +345,7 @@ void process(long long from, long long to, FILE * file) {
                 if (bitmap[i] & checkMask[j]) {
                     long long value = from + (((long long) i) << 4) + j;
                     #ifdef VERBOSE_DEBUG
-                    fprintf(stderr,"%s found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
+                    if (verbose) fprintf(stderr,"%s found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
                         "result = %.2X, from = %lld\n", 
                         timeNow(), value, (long long)i, (int) bitmap[i], (int) j, 
                         (int) checkMask[j], (int)(bitmap[i] & checkMask[j]), from);
@@ -339,14 +355,14 @@ void process(long long from, long long to, FILE * file) {
             }
         }
     }
-    fprintf(stderr, "%s Scanning last byte of bitmap for new primes\n", 
+    if (verbose) fprintf(stderr, "%s Scanning last byte of bitmap for new primes\n", 
         timeNow(), startValue, endValue);
     if (bitmap[endRange]) {
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
                 long long value = from + (((long long) endRange) << 4) + j;
                 #ifdef VERBOSE_DEBUG
-                fprintf(stderr,"%s found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
+                if (verbose) fprintf(stderr,"%s found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
                     "result = %.2X, from = %lld\n", 
                     timeNow(), value, (long long)endRange, (int) bitmap[endRange], (int) j, 
                     (int) checkMask[j], (int)(bitmap[endRange] & checkMask[j]), from);
@@ -356,7 +372,7 @@ void process(long long from, long long to, FILE * file) {
         }
     }
 
-    fprintf(stderr, "%s All primes have now been discovered between %lld (inc) and %lld (ex)\n",
+    if (verbose) fprintf(stderr, "%s All primes have now been discovered between %lld (inc) and %lld (ex)\n",
         timeNow(), from, to);
 
     free(bitmap);
@@ -380,7 +396,7 @@ void processToFile(long long from, long long to) {
             snprintf(fileName, FILENAME_MAX,"%s/%sg%04lld%sG%04lld%s",
                 fileDir,filePrefix,from/1000000,fileInfix,to/1000000,fileSuffix);
         }
-        fprintf(stderr, "%s Starting new prime file: %s\n",
+        if (!silent) fprintf(stderr, "%s Starting new prime file: %s\n",
             timeNow(), fileName);
         FILE * file = fopen(fileName, "wx");
         if (!file) exitError(2, errno);
@@ -426,16 +442,55 @@ void writeInitializationFile() {
 void processAll() {
     long long from = startValue;
     long long to = startValue - (startValue % chunkSize) + chunkSize;
-	long long chunkNum = 0;
+    long long chunkNum = 0;
     while (to < endValue) {
         if (chunkNum % threadCount == threadNum) processToFile(from, to);
         from = to;
         to += chunkSize;
-		chunkNum++;
+        chunkNum++;
     }
     if (from < endValue) {
         if (chunkNum % threadCount == threadNum) processToFile(from, endValue);
     }
+}
+
+
+
+void processAllMultiThread() {
+    if (!silent) fprintf(stderr, "%s Running multithread with %lld threads\n", timeNow(), threadCount);
+    for (threadNum = 0; threadNum < threadCount; ++threadNum) {
+        pid_t child = fork();
+        if (child ==  -1 ) {  // this will need fixing so that it kills the children
+            int lerrno = errno;
+            fprintf(stderr, "%s Error: could not fork for thread %lld\n", timeNow(), threadNum+1);
+            exitError(2, lerrno);
+        }
+        if (child == 0) {
+            if (!silent) fprintf(stderr, "%s Thread %lld started\n", timeNow(), threadNum+1);
+            processAll();
+            if (!silent) fprintf(stderr, "%s Thread %lld finished\n", timeNow(), threadNum+1);
+            exit(0); // Once the thread has processed all cleanup should be left to the master if there is any
+        }
+    }
+
+    int exitStatus = 0;
+
+    if (!silent) fprintf(stderr, "%s All threads now started\n", timeNow(), threadCount);
+
+    for (threadNum = 0; threadNum < threadCount; ++threadNum) {
+        int status;
+        pid_t child = wait(&status);
+        if (child == -1) {
+            int lerrno = lerrno;
+            fprintf(stderr, "%s Error: wait for child thread. There are believed to be %lld thread(s) still running\n", timeNow(), threadCount - threadNum);
+            exitError(2, lerrno);
+        }
+        if (WEXITSTATUS(status) != 0 && exitStatus == 0) exitStatus = WEXITSTATUS(status);
+    }
+
+    if (!silent) fprintf(stderr, "%s All threads now terminated\n", timeNow(), threadCount);    
+
+    if (exitStatus != 0) exit(exitStatus);
 }
 
 
@@ -454,18 +509,19 @@ void parseArgs(int argC, char ** argV) {
                {"end-billion",  required_argument, 0, 'G'},
                {"chunk-million", required_argument, 0, 'c'},
                {"chunk-billion", required_argument, 0, 'C'},
-			   {"thread-count", required_argument, 0, 'T'},
-			   {"thread-num", required_argument, 0, 't'},
+               {"thread-count", required_argument, 0, 'T'},
+               {"thread-num", required_argument, 0, 't'},
                {"prefix", required_argument, 0, 1000},
                {"suffix", required_argument, 0, 1001},
                {"infix", required_argument, 0, 1002},
                {"dir", required_argument, 0, 1003},
-               {"stdout", no_argument, 0, 's'},
+               {"silent", no_argument, 0, 's'},
+               {"verbose", no_argument, 0, 'v'},
                {"file", no_argument, 0, 'f'},
-			   {"initialize-only", no_argument, 0, 'i'},
+               {"initialize-only", no_argument, 0, 'i'},
                {0, 0, 0, 0}
              };    
-    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:s:Sfi";
+    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:svfi";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -490,7 +546,8 @@ void parseArgs(int argC, char ** argV) {
             case 1001: fileSuffix = optarg; break;
             case 1002: fileInfix = optarg; break;
             case 1003: fileDir = optarg; break;
-            case 's': useStdout = 1; break;
+            case 's': silent = 1; verbose = 0; break;
+            case 'v': verbose = !silent; break;
             case 'f': useStdout = 0; break;
 			case 'i': initializeOnly = 1; break;
             case '?': 
@@ -517,7 +574,6 @@ void parseArgs(int argC, char ** argV) {
                 exit(1);
             }
 
-            if (number == 's') startValue = value * scale;
             else if (number == 'e') endValue = value * scale;
             else if (number == 'c') {
                 if (value == 0) {
@@ -527,12 +583,22 @@ void parseArgs(int argC, char ** argV) {
                 }
                 chunkSize = value * scale;
             }
-			else if (number == 't') threadNum = value - 1;
-			else if (number == 'T') threadCount = value;
+            else if (number == 't') {
+                threadNum = value - 1;
+                singleThread = 1;
+            }
+            else if (number == 'T') {
+                threadCount = value;
+            }
         }
     }
 
-	int errorFlag = 0;
+    // We default to multithreading with 1 thread...
+    // This is more normally known as single threading so
+    // lets not waste time with the multithreading functions.
+    if (threadCount == 1) singleThread = 1;
+
+    int errorFlag = 0;
 
     if (endValue <= startValue) {
        fprintf(stderr, "%s Error: end value (%lld) is not larger than start value (%lld).\n", 
@@ -577,8 +643,9 @@ int main(int argC, char ** argV) {
     if (fileCount == 0 || initializeOnly) initializeSelf();
     else initializeFromFile();
 
-	if (initializeOnly) writeInitializationFile();
-    else processAll();
+    if (initializeOnly) writeInitializationFile();
+    else if (singleThread) processAll();
+    else processAllMultiThread();
     
     if (fileCount == 0 || initializeOnly) finalSelf();
     else finalFile();

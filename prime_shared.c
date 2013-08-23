@@ -1,3 +1,5 @@
+#include <time.h>
+
 #include "prime_shared.h"
 
 char * timeNow() {

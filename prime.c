@@ -34,7 +34,7 @@ for each time a prime is touched it uses addition and not division.
 
 #include "prime_64.h"
 
-#include "prime-shared.c"
+#include "prime_shared.h"
 
 //#define VERBOSE_DEBUG
 
@@ -452,18 +452,18 @@ void processAll() {
 
 
 void processAllMultiThread() {
-	if (!silent) fprintf(stderr, "%s Running multithread with %lld threads\n", timeNow(), threadCount);
-	for (threadNum = 0; threadNum < threadCount; ++threadNum) {
+	if (!silent) fprintf(stderr, "%s Running multithread with %d threads\n", timeNow(), threadCount);
+	for (threadNum = 1; threadNum <= threadCount; ++threadNum) {
 		pid_t child = fork();
 		if (child ==  -1 ) {  // this will need fixing so that it kills the children
 			int lerrno = errno;
-			fprintf(stderr, "%s Error: could not fork for thread %lld\n", timeNow(), threadNum);
+			fprintf(stderr, "%s Error: could not fork for thread %d\n", timeNow(), threadNum);
 			exitError(2, lerrno);
 		}
 		if (child == 0) {
-			if (!silent) fprintf(stderr, "%s Thread %lld started\n", timeNow(), threadNum);
+			if (!silent) fprintf(stderr, "%s Thread %d started\n", timeNow(), threadNum);
 			processAll();
-			if (!silent) fprintf(stderr, "%s Thread %lld finished\n", timeNow(), threadNum);
+			if (!silent) fprintf(stderr, "%s Thread %d finished\n", timeNow(), threadNum);
 			exit(0); // Once the thread has processed all cleanup should be left to the master if there is any
 		}
 	}
@@ -477,9 +477,10 @@ void processAllMultiThread() {
 		pid_t child = wait(&status);
 		if (child == -1) {
 			int lerrno = lerrno;
-			fprintf(stderr, "%s Error: wait for child thread. There are believed to be %lld thread(s) still running\n", timeNow(), threadCount - threadNum);
+			fprintf(stderr, "%s Error: wait for child thread. There are believed to be %d thread(s) still running\n", timeNow(), threadCount - threadNum);
 			exitError(2, lerrno);
 		}
+		if (verbose) fprintf(stderr, "%s Thread completed with return code %d\n", timeNow(), (int)WEXITSTATUS(status));
 		if (WEXITSTATUS(status) != 0 && exitStatus == 0) exitStatus = WEXITSTATUS(status);
 	}
 
@@ -495,8 +496,8 @@ void setDefaults() {
 	prime_set_num(endValue, 1000000000);
 	prime_set_num(chunkSize, 1000000000);
 
-	threadCount = 1; // threadCount and threadNum have no reason to be longlong
-	threadNum = 0;   // other than it makes the input easy.
+	threadCount = 1;
+	threadNum = 1;
 	singleThread = 0;
 
 	verbose = 0;
@@ -592,22 +593,22 @@ void parseArgs(int argC, char ** argV) {
 			str_to_prime(value, optarg);
 			str_to_prime(pscale,scale);
 			
-			if (number == 'e') prime_mul(endValue, value, scale);
-			else if (number == 'c') prime_mul(chunkSize, value, scale);
+			if (number == 'e') prime_mul(endValue, value, pscale);
+			else if (number == 'c') prime_mul(chunkSize, value, pscale);
 		}
 		else if (threadingNumber) {
 		    long long value;
 			char * endptr;
-			value = strtoll(s, &endptr, 10);
+			value = strtoll(optarg, &endptr, 10);
 			if (*endptr || value <= 0 || value > 1000) {
 				fprintf(stderr, "%s Error: threading number %s\n", 
-					timeNow(), s);
+					timeNow(), optarg);
 				exit(1);
 			}
-			if (smallNumber == 'x') {
+			if (threadingNumber == 'x') {
 				threadCount = value;
 			}
-			else if (smallNumber == 'X') {
+			else if (threadingNumber == 'X') {
 				threadNum = value;
 			}
 		}
@@ -633,14 +634,14 @@ void parseArgs(int argC, char ** argV) {
 	}
 
 	if (threadCount < 1) {
-		fprintf(stderr, "%s Error: invalid thread-count (%lld). Must be 1 or more.\n",
+		fprintf(stderr, "%s Error: invalid thread-count (%d). Must be 1 or more.\n",
 			timeNow(), threadCount);
 		errorFlag = 1;
 	}
 
-	if (threadNum < 0 || threadNum >= threadCount) {
-		fprintf(stderr, "%s Error: invalud thread-num (%lld).  Must be between 1 and thread-count (%lld).\n",
-			timeNow(), threadNum+1, threadCount);
+	if (threadNum < 0 || threadNum > threadCount) {
+		fprintf(stderr, "%s Error: invalud thread-num (%d).  Must be between 1 and thread-count (%d).\n",
+			timeNow(), threadNum, threadCount);
 		errorFlag = 1;
 	}
 
@@ -663,7 +664,7 @@ int main(int argC, char ** argV) {
 
 	if (fileCount == 0 || initializeOnly) initializeSelf();
 	else initializeFromFile();
-
+	
 	if (initializeOnly) writeInitializationFile();
 	else if (singleThread) processAll();
 	else processAllMultiThread();

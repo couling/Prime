@@ -6,3 +6,6 @@ prime: prime.c
 prime-slow: prime-slow.c
 	gcc -Werror -std=c99 -O3 -o prime-slow prime-slow.c
 
+clean:
+    rm prime || true
+	rm prime-slow || true

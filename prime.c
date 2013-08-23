@@ -32,7 +32,7 @@ for each time a prime is touched it uses addition and not division.
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "prime-long-long.h"
+#include "prime_64.h"
 
 #include "prime-shared.c"
 

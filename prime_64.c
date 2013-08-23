@@ -1,4 +1,8 @@
-#include "prime-long-long.h"
+#include "prime_64.h"
+
+#include <stdio.h>
+//#include <string.h>
+#include <stdlib.h>
 
 #ifdef PRIME_BYTE_COUNT
 #undef PRIME_BYTE_COUNT

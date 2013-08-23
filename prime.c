@@ -79,18 +79,6 @@ unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x
 
 
 
-char * timeNow() {
-	time_t rawtime;
-	struct tm * timeinfo;
-	time ( &rawtime );
-	timeinfo = localtime ( &rawtime );
-	static char t[100];
-	strftime (t,100,"%a %b %d %H:%M:%S %Y",timeinfo);
-	return t;
-}
-
-
-
 void exitError(int returnCode, int lerrno) {
 	fprintf(stderr, "%s Error: %s\n", timeNow(), strerror(lerrno));
 	exit(returnCode);

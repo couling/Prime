@@ -1,15 +1,8 @@
-#include "prime_64.h"
-
 #include <stdio.h>
-//#include <string.h>
 #include <stdlib.h>
 
-#ifdef PRIME_BYTE_COUNT
-#undef PRIME_BYTE_COUNT
-#endif // PRIME_BYTE_COUNT
-
-#define PRIME_BYTE_COUNT sizeof(long long)
-#define PRIME_STRING_SIZE ( (int)( ( ( PRIME_BYTE_COUNT * 8 * 3.01 ) / 10 ) + 1 ) )
+#include "prime_64.h"
+#include "prime_shared.h"
 
 Prime _str_to_prime(char * s) {
 	Prime value;

@@ -1,6 +1,14 @@
 #ifndef prime_long_long_h
 #define prime_long_long_h
 
+#ifdef PRIME_BYTE_COUNT
+#undef PRIME_BYTE_COUNT
+#endif // PRIME_BYTE_COUNT
+
+#define PRIME_BYTE_COUNT sizeof(long long)
+#define PRIME_STRING_SIZE ( (int)( ( ( PRIME_BYTE_COUNT * 8 * 3.01 ) / 10 ) + 1 ) )
+
+
 typedef long long Prime;
 
 #define prime_set_num(target, value) target = value

@@ -79,30 +79,12 @@ unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x
 
 
 
-void exitError(int returnCode, int lerrno) {
-	fprintf(stderr, "%s Error: %s\n", timeNow(), strerror(lerrno));
-	exit(returnCode);
-} 
-
-
-
-void * mallocSafe(size_t bytes) {
-	void * result = malloc(bytes);
-	if (!result) exitError(255, errno);
-	return result;
-}
-
-
-
-void * reallocSafe(void * existing, size_t bytes) {
-	void * result = realloc(existing, bytes);
-	if (!result) exitError(255, errno);
-	return result;
-}
-
-
-
 void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) {
+	// An optomisatin can be made here by splitting this function into two.
+	// One which starts at prime^2 and one which starts at the beginning
+	// process() would be able to determine when to use the two through 
+	// binary search.
+	
 	Prime value = (prime * prime) - offset;
 	if (value < 0) {
 		value = prime - ((offset - 1) % prime) - 1;
@@ -288,23 +270,23 @@ void printValue(FILE * file, Prime value) {
 
 
 void process(Prime from, Prime to, FILE * file) {
-	if (!silent) fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", 
-		timeNow(), from, to);
-	if (from <= 2 && to > 2) printValue(file,2ll);
+	if (!silent) fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", timeNow(), from, to);
+	// This program is blind to 2s. So if 2 is in range then print it manually; it will be the first prime any way.
+	if (from <= 2 && to > 2) printValue(file,2ll); 
 
-	if (from <= 2) {
+	if (from < 2) {
 		// Process ignores even primes
 		// Process doesnt know 1 isnt a prime, so skip it!
 		from = 2;
 	}
 	else {
-		// Process expects to aligned to a even number.
-		// If it's odd start a number earlier, the even can never be found
-		// so it doesn't matter that we start on it.
+		// Process expects to be aligned to a even number.
+		// process ignores even numbers so adding an extra even
+		// number won't cause process to find an extra prime
 		if (from & 0x1) --from;
 	}
 	
-	size_t range = (to - from + 0x0F) >> 4;
+	size_t range = (to - from + 15) / 16;
 	if (verbose) fprintf(stderr, "%s Bitmap will contain %zd bytes\n", 
 		timeNow(), range);
 

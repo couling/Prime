@@ -16,6 +16,8 @@ This was obsoleted by bitprime.c
 #include <time.h>
 #include <getopt.h>
 
+#include "prime_shared.h"
+
 #define ALLOC_UNIT 128;
 
 int primeCount;
@@ -28,30 +30,17 @@ long long endValue = 1000000ll;
 char ** files;
 int fileCount;
 
-char timeNow[100];
-
-void setTimeNow() {
-	time_t rawtime;
-	struct tm * timeinfo;
-	time ( &rawtime );
-	timeinfo = localtime ( &rawtime );
-	
-	strftime (timeNow,100,"%a %b %d %H:%M:%S %Y",timeinfo);
-}
-
 
 
 void initializeSelf() {
-	setTimeNow();
 	fprintf(stderr, "%s Running Self initialisation for %lld (inc) to %lld (ex)\n", 
-		timeNow, startValue, endValue);
+		timeNow(), startValue, endValue);
 
 	primesAllocated = ALLOC_UNIT;
 	primes = malloc(primesAllocated * sizeof(long long));
 	if (!primes) {
-		setTimeNow();
 		fprintf(stderr, "%s Could not allocate %d bytes for prime array\n", 
-			timeNow, (int) (primesAllocated * sizeof(long long)));
+			timeNow(), (int) (primesAllocated * sizeof(long long)));
 		exit(255);
 	}
 
@@ -67,9 +56,8 @@ void initializeSelf() {
 	long long value = 7ll;
     while (1){
         long long nextPrimeRequired = primes[maxUsable] * primes[maxUsable];
-        setTimeNow();
         fprintf(stderr, "%s Checking against %d primes - max %lld - checking value %lld\n",
-            timeNow, maxUsable, primes[maxUsable-1], value);
+            timeNow(), maxUsable, primes[maxUsable-1], value);
         while (value < nextPrimeRequired ) {
             int i=0;
             while (i<maxUsable && value % primes[i]) ++i;
@@ -78,9 +66,8 @@ void initializeSelf() {
 					primesAllocated += ALLOC_UNIT;
 					primes = realloc(primes, primesAllocated * sizeof(long long));
 					if (!primes) {
-						setTimeNow();
 						fprintf(stderr, "%s Could not (re)allocate %d bytes for prime array\n", 
-							timeNow, (int) (primesAllocated * sizeof(long long)));
+							timeNow(), (int) (primesAllocated * sizeof(long long)));
 						exit(255);
 					}
 				}
@@ -100,10 +87,9 @@ void initializeSelf() {
 
 	Complete:
 
-	setTimeNow();
 	if (startValue < value) {
 		fprintf(stderr, "%s All primes have now been discovered between %lld (inc) and %lld (ex)\n",
-			timeNow, startValue, value);
+			timeNow(), startValue, value);
 		startValue = value;
 	}
 	else {
@@ -111,7 +97,7 @@ void initializeSelf() {
 		while (primes[maxUsable] * primes[maxUsable] < startValue) ++maxUsable;
 	}
 
-	fprintf(stderr,"%s Prime array now full with %d primes\n", timeNow, primeCount);
+	fprintf(stderr,"%s Prime array now full with %d primes\n", timeNow(), primeCount);
 
 }
 
@@ -124,14 +110,12 @@ void initializeFromFile() {
 
 
 void process() {
-	setTimeNow();
-	fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", timeNow, startValue, endValue);
+	fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", timeNow(), startValue, endValue);
 	long long value = startValue;
     while (value < endValue) {
         long long nextPrimeRequired = primes[maxUsable] * primes[maxUsable];
-        setTimeNow();
         fprintf(stderr, "%s Checking against %d primes - max %lld - checking value %lld\n",
-            timeNow, maxUsable, primes[maxUsable-1], value);
+            timeNow(), maxUsable, primes[maxUsable-1], value);
         while (value < nextPrimeRequired) {
 			if (value >= endValue) break;
             int i=0;
@@ -145,9 +129,8 @@ void process() {
         ++maxUsable;
     }
 
-	setTimeNow();
     fprintf(stderr, "%s All primes have now been discovered between %lld (inc) and %lld (ex)\n",
-        timeNow, startValue, endValue);
+        timeNow(), startValue, endValue);
 
 }
 
@@ -205,8 +188,7 @@ void parseArgs(int argC, char ** argV) {
 			char * endptr;
 			value = strtoll(optarg, &endptr, 10);
 			if (endptr == optarg || value < 0) {
-				setTimeNow();
-				fprintf(stderr, "%s Error: invalid number %s\n", timeNow, optarg);
+				fprintf(stderr, "%s Error: invalid number %s\n", timeNow(), optarg);
 				exit(1);
 			}
 

@@ -2,9 +2,8 @@ all: build/prime build/prime-slow
 
 
 clean:
-	rm -rf build || true
-	rm -rf obj || true
-	rm -rf lib || true
+	rm -rf build
+	rm -rf obj
 
 
 all: build/prime build/prime-slow
@@ -27,7 +26,7 @@ obj/%.o: %.c makefile | obj
 
 
 build/prime: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
-	gcc -O3 -s -o $@ $^
+	gcc -O3 -s -o $@ $^ -lm
 
-build/prime-slow: obj/prime-slow.o | build
-	gcc -O3 -s -o $@ $^
+build/prime-slow: obj/prime-slow.o obj/prime_shared.o | build
+	gcc -O3 -s -o $@ $^ -lm

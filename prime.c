@@ -38,9 +38,9 @@ for each time a prime is touched it uses addition and not division.
 
 //#define VERBOSE_DEBUG
 
-#define ALLOC_UNIT 0x200000
+#define ALLOC_UNIT 0x100000
 #define APPLY_DEBUG_MASK 0x3FFFF
-#define SCAN_DEBUG_MASK 0x1FFFFFF
+#define SCAN_DEBUG_MASK 0x1FFFFF
 
 // Config parameters
 char * * files;
@@ -113,47 +113,37 @@ void initializeSelf() {
 
 	size_t primesAllocated = ALLOC_UNIT;
 	primes = mallocSafe(primesAllocated * sizeof(Prime));
-	size_t range = ALLOC_UNIT;
+	Prime maxRequired;
+	prime_sqrt(maxRequired, endValue);
+	size_t range = (maxRequired + 15) / 16;
 	unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
 	memset(bitmap, 0xFF, range);
 
-	Prime value=3ll;
+	Prime value = 3ll;
 	primeCount = 0;
 
-	while (1) {
-		Prime maxSize = (((Prime) range) << 4);
-		while (value < maxSize) {
-			if (bitmap[value >> 4] & checkMask[value & 0x0F]) {
-				applyPrime(value, 0, bitmap, range);
-				if (primeCount == primesAllocated) {
-					if (verbose) fprintf(stderr,"%s Initialized %zd primes, reached value %lld (ex)\n", 
-						timeNow(), primeCount, value);
-					primesAllocated += ALLOC_UNIT;
-					primes = reallocSafe(primes, primesAllocated * sizeof(Prime));
-				}
-				primes[primeCount] = value;
-				++primeCount;
-				if (value * value > endValue) goto Complete;
-			}
-			#ifdef VERBOSE_DEBUG
-			else {
-				if (verbose) fprintf(stderr,"%s Ruled out %lld due to bitmap[%d] = %d and checkMask[%d] = %d\n", 
-					timeNow(), value, (int) value >> 4, (int)bitmap[value >> 4], 
-					(int)value & 0x0F, (int)checkMask[value & 0x0F]);
-			}
-			#endif
-			value+=2;
-		}
-		bitmap = reallocSafe(bitmap, (range + ALLOC_UNIT) * sizeof(unsigned char)); 
-		Prime offset = ((Prime) range) << 4;
-		unsigned char * newbitmap = bitmap +  range;
-		memset(newbitmap, 0xFF, ALLOC_UNIT * sizeof(unsigned char));
-		for (size_t i = 0; i < primeCount; ++i)
-			applyPrime(primes[i], offset, newbitmap, ALLOC_UNIT);
-		range += ALLOC_UNIT;
-	}
+	while (value <= maxRequired) {
 
-	Complete:
+		if (bitmap[value >> 4] & checkMask[value & 0x0F]) { // if value prime
+			applyPrime(value, 0, bitmap, range);
+			if (primeCount == primesAllocated) {
+				if (verbose) fprintf(stderr,"%s Initialized %zd primes, reached value %lld (ex)\n", 
+					timeNow(), primeCount, value);
+				primesAllocated += ALLOC_UNIT;
+				primes = reallocSafe(primes, primesAllocated * sizeof(Prime));
+			}
+			primes[primeCount] = value;
+			++primeCount;
+		}
+		#ifdef VERBOSE_DEBUG
+		else {
+			if (verbose) fprintf(stderr,"%s Ruled out %lld due to bitmap[%d] = %d and checkMask[%d] = %d\n", 
+				timeNow(), value, (int) value >> 4, (int)bitmap[value >> 4], 
+				(int)value & 0x0F, (int)checkMask[value & 0x0F]);
+		}
+		#endif
+		value+=2;
+	}
 
 	free(bitmap);
 

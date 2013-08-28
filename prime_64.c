@@ -22,3 +22,5 @@ Prime _str_to_prime(char * s) {
 
 void prime_to_str(char * target, Prime value) {
 }
+
+

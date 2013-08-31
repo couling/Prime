@@ -7,6 +7,8 @@
 
 #include "prime_shared.h"
 
+char threadString[11] = "xx";
+
 char * timeNow() {
 	time_t rawtime;
 	struct tm * timeinfo;
@@ -20,7 +22,7 @@ char * timeNow() {
 
 
 void exitError(int returnCode, int lerrno) {
-	fprintf(stderr, "%s Error: %s\n", timeNow(), strerror(lerrno));
+	fprintf(stderr, "%s [%s] Error: %s\n", timeNow(), threadString, strerror(lerrno));
 	exit(returnCode);
 } 
 

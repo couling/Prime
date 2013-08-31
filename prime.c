@@ -39,8 +39,8 @@ for each time a prime is touched it uses addition and not division.
 //#define VERBOSE_DEBUG
 
 #define ALLOC_UNIT 0x100000
-#define APPLY_DEBUG_MASK 0x3FFFF
-#define SCAN_DEBUG_MASK 0x1FFFFF
+#define APPLY_DEBUG_MASK 0xFFFF
+#define SCAN_DEBUG_MASK 0x3FFFFF
 
 // Config parameters
 char * * files;
@@ -67,7 +67,6 @@ char * fileDir = ".";
 char * filePrefix = "prime.";
 char * fileSuffix = ".txt";
 char * fileInfix = "-";
-char fileLabelType = 'g';
 int useStdout = 1;
 int initializeOnly = 0;
 
@@ -94,9 +93,9 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 	Prime applyTo = ((Prime) mapSize) << 4;
 	while (value < applyTo) {
 		#ifdef VERBOSE_DEBUG
-		if (verbose) fprintf(stderr,"%s prime = %lld, value = %lld, map[%lld] = %.2X, "
+		if (verbose) fprintf(stderr,"%s [%s] prime = %lld, value = %lld, map[%lld] = %.2X, "
 			"removeMask[%d] = %.2X, result = %.2X, offset = %lld\n", 
-			timeNow(), prime, value, value >> 4, (int) map[value >> 4], (int) value & 0x0F, 
+			timeNow(), threadString, prime, value, value >> 4, (int) map[value >> 4], (int) value & 0x0F, 
 			(int) removeMask[value & 0x0F], (int)(map[value >> 4] & removeMask[value & 0x0F]),
 			offset);
 		#endif
@@ -108,8 +107,14 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 
 
 void initializeSelf() {
-	if (!silent) fprintf(stderr, "%s Running Self initialisation for %lld (inc) to %lld (ex)\n", 
-		timeNow(), startValue, endValue);
+	if (!silent) {
+		PrimeString startValueString;
+		prime_to_str(startValueString, startValue);
+		PrimeString endValueString;
+		prime_to_str(endValueString, endValue);
+		fprintf(stderr, "%s [%s] Running Self initialisation for %s (inc) to %s (ex)\n", 
+			timeNow(), threadString, startValueString, endValueString);
+	}
 
 	size_t primesAllocated = ALLOC_UNIT;
 	primes = mallocSafe(primesAllocated * sizeof(Prime));
@@ -127,8 +132,12 @@ void initializeSelf() {
 		if (bitmap[value >> 4] & checkMask[value & 0x0F]) { // if value prime
 			applyPrime(value, 0, bitmap, range);
 			if (primeCount == primesAllocated) {
-				if (verbose) fprintf(stderr,"%s Initialized %zd primes, reached value %lld (ex)\n", 
-					timeNow(), primeCount, value);
+				if (verbose) {
+					PrimeString valueString;
+					prime_to_str(valueString, value);
+					fprintf(stderr,"%s [%s] Initialized %zd primes, reached value %s (ex)\n", 
+						timeNow(), threadString, primeCount, valueString);
+				}
 				primesAllocated += ALLOC_UNIT;
 				primes = reallocSafe(primes, primesAllocated * sizeof(Prime));
 			}
@@ -137,8 +146,10 @@ void initializeSelf() {
 		}
 		#ifdef VERBOSE_DEBUG
 		else {
-			if (verbose) fprintf(stderr,"%s Ruled out %lld due to bitmap[%d] = %d and checkMask[%d] = %d\n", 
-				timeNow(), value, (int) value >> 4, (int)bitmap[value >> 4], 
+			PrimeString valueString;
+			prime_to_str(valueString, value);
+			if (verbose) fprintf(stderr,"%s [%s] Ruled out %s due to bitmap[%d] = %d and checkMask[%d] = %d\n", 
+				timeNow(), threadString, valueString, (int) value >> 4, (int)bitmap[value >> 4], 
 				(int)value & 0x0F, (int)checkMask[value & 0x0F]);
 		}
 		#endif
@@ -147,7 +158,8 @@ void initializeSelf() {
 
 	free(bitmap);
 
-	if (!silent) fprintf(stderr,"%s Prime array now full with %zd primes\n", timeNow(), primeCount);
+	if (!silent) fprintf(stderr,"%s [%s] Prime array now full with %zd primes\n", 
+		timeNow(), threadString, primeCount);
 }
 
 
@@ -160,74 +172,79 @@ void finalSelf() {
 
 void initializeFromFile() {
 	if (fileCount > 1) {
-			fprintf(stderr, "%s Error: Initialization from multiple files has not yet been implemented\n", 
-				timeNow());
+			fprintf(stderr, "%s [%s] Error: Initialization from multiple files has not yet been implemented\n", 
+				timeNow(), threadString);
 			exit(1);
 	}
 
 	fileHandles = mallocSafe(sizeof(struct FileHandle) * 1); // there can be only one.
 
-		if (!silent) fprintf(stderr, "%s Initializing from file (%s)\n",timeNow(), files[0]);
+		if (!silent) fprintf(stderr, "%s [%s] Initializing from file (%s)\n",
+			timeNow(), threadString, files[0]);
 
 	fileHandles[0].fileName = files[0];
 	fileHandles[0].handle = open(files[0], O_RDONLY);
 	if (fileHandles[0].handle < 0) {
 		int lerrno = errno;
-		fprintf(stderr, "%s Error: failed to open file %s\n", timeNow(), files[0]);
+		fprintf(stderr, "%s [%s] Error: failed to open file %s\n", 
+			timeNow(), threadString, files[0]);
 		exitError(1, lerrno);
 	}
 
 	if ( fstat(fileHandles[0].handle, &(fileHandles[0].statBuffer)) < 0 ) {
 		int lerrno = errno;
-			fprintf(stderr, "%s Error: failed to stat file %s\n", timeNow(), files[0]);
+			fprintf(stderr, "%s [%s] Error: failed to stat file %s\n", 
+				timeNow(), threadString, files[0]);
 			exitError(1, lerrno);
 	}
 
 	if ( fileHandles[0].statBuffer.st_size % sizeof(Prime) ) {
 		int lerrno = errno;
-		fprintf(stderr, "%s Error: unexpected file length %s (%lld) this should be divisible by %zd.\n", timeNow(), files[0], (Prime)(fileHandles[0].statBuffer.st_size),sizeof(Prime));
+		fprintf(stderr, "%s [%s] Error: unexpected file length %s (%lld) this should be divisible by %zd.\n", 
+			timeNow(), threadString, files[0], (Prime)(fileHandles[0].statBuffer.st_size),sizeof(Prime));
 			exitError(1, lerrno);
 	}
 
 	primes = mmap(0, fileHandles[0].statBuffer.st_size, PROT_READ, MAP_SHARED, fileHandles[0].handle, 0);
 	if (primes == MAP_FAILED) {
 		int lerrno = errno;
-			fprintf(stderr, "%s Error: failed to memory map file. Is this a regular file %s\n", timeNow(), files[0]);
+			fprintf(stderr, "%s [%s] Error: failed to memory map file. Is this a regular file %s\n", 
+				timeNow(), threadString, files[0]);
 			exitError(1, lerrno);
 	}
 
 
 	primeCount = fileHandles[0].statBuffer.st_size / sizeof(Prime);
 
-	if (verbose) fprintf(stderr, "%s File memory mapped (%s) ... checking file\n",
-		timeNow(), files[0]);
+	if (verbose) fprintf(stderr, "%s [%s] File memory mapped (%s) ... checking file\n",
+		timeNow(), threadString, files[0]);
 
 	if (primes[0] != 3ll) {
-		fprintf(stderr,"%s Error: primes[0] is not 3 in %s. Is this a prime initialization file?\n",
-			timeNow(), files[0]);
+		fprintf(stderr,"%s [%s] Error: primes[0] is not 3 in %s. Is this a prime initialization file?\n",
+			timeNow(), threadString, files[0]);
 	}
 
 	for (size_t i = 1; i < primeCount; ++i) {
 		if (primes[i] <= primes[i-1]) {
-			fprintf(stderr, "%s Error: primes[%zd] (%lld) is out of sequence with primes[%zd] (%lld) in %s. Is this a prime initialization file?\n", 
-				timeNow(), i-1, primes[i-1], i, primes[i], files[0]);
+			fprintf(stderr, "%s [%s] Error: primes[%zd] (%lld) is out of sequence with primes[%zd] (%lld) in %s. Is this a prime initialization file?\n", 
+				timeNow(), threadString, i-1, primes[i-1], i, primes[i], files[0]);
 			exit(1);
 		}
 		if (!(primes[i] & 1ll)) {
-			fprintf(stderr, "%s Error: primes[%zd] (%lld) is even. Is this a prime initialization file?\n", 
-				timeNow(), i, primes[i], files[0]);
+			fprintf(stderr, "%s [%s] Error: primes[%zd] (%lld) is even. Is this a prime initialization file?\n", 
+				timeNow(), threadString, i, primes[i], files[0]);
 			exit(1);
 		}
 	}
 
 	if (primes[primeCount-1] * primes[primeCount-1] < endValue) {
-		fprintf(stderr, "%s Error: Prime initialisation file does not contain large enough primes.\n %s is only large enough for primes up to %lld\n", 
-			timeNow(),files[0],primes[primeCount-1] * primes[primeCount-1] );
+		fprintf(stderr, "%s [%s] Error: Prime initialisation file does not contain large enough primes.\n %s is only large enough for primes up to %lld\n", 
+			timeNow(), threadString,files[0],primes[primeCount-1] * primes[primeCount-1] );
 		exit(1);
 	}
 
-	if (verbose) fprintf(stderr, "%s File checks passed (%s)\n",
-		timeNow(), files[0]);
+	if (verbose) fprintf(stderr, "%s [%s] File checks passed (%s)\n",
+		timeNow(), threadString, files[0]);
 }
 
 
@@ -236,32 +253,32 @@ void initializeFromFile() {
 void finalFile() {
 	if ( munmap( primes, fileHandles[0].statBuffer.st_size) ) {
 		int lerrno = errno;
-		fprintf(stderr, "%s Error: failed to unmap file %s\n", timeNow(), files[0]);
+		fprintf(stderr, "%s [%s] Error: failed to unmap file %s\n", 
+			timeNow(), threadString, files[0]);
 		exitError(1, lerrno);
 	}
 
 	if ( close(fileHandles[0].handle) ) {
 		int lerrno = errno;
-		fprintf(stderr, "%s Error: failed to close file %s\n", timeNow(), files[0]);
+		fprintf(stderr, "%s [%s] Error: failed to close file %s\n", 
+			timeNow(), threadString, files[0]);
 		exitError(1, lerrno);
 	}
 }
 
 
 
-void printValue(FILE * file, Prime value) {
-	if (fprintf(file,"%lld\n",value) < 0) {
-		int lerrno = errno;
-		fprintf(stderr, "%s Error: Failed to write prime number (%lld)\n",
-			timeNow(), value);
-		exitError(2, lerrno);
-	}
-}
-
-
 void process(Prime from, Prime to, FILE * file) {
-	if (!silent) fprintf(stderr, "%s Running process for %lld (inc) to %lld (ex)\n", timeNow(), from, to);
-	// This program is blind to 2s. So if 2 is in range then print it manually; it will be the first prime any way.
+	if (!silent) {
+		PrimeString fromString;
+		prime_to_str(fromString, from);
+		PrimeString toString;
+		prime_to_str(toString, to);
+		fprintf(stderr, "%s [%s] Running process for %s (inc) to %s (ex)\n", 
+			timeNow(), threadString, fromString, toString);
+	}
+	// This program is blind to 2s. So if 2 is in range then print it manually; 
+	// it will be the first prime any way.
 	if (from <= 2 && to > 2) printValue(file,2ll); 
 
 	if (from < 2) {
@@ -277,22 +294,25 @@ void process(Prime from, Prime to, FILE * file) {
 	}
 	
 	size_t range = (to - from + 15) / 16;
-	if (verbose) fprintf(stderr, "%s Bitmap will contain %zd bytes\n", 
-		timeNow(), range);
+	if (verbose) fprintf(stderr, "%s [%s] Bitmap will contain %zd bytes\n", 
+		timeNow(), threadString, range);
 
 	unsigned char * bitmap = mallocSafe(range);
 	memset(bitmap, 0xFF, range);
 
-	if (verbose) fprintf(stderr, "%s Applying all primes\n", 
-		timeNow(), from, to);
+	if (verbose) fprintf(stderr, "%s [%s] Applying all primes\n", 
+		timeNow(), threadString, from, to);
 
 	for (size_t i = 0; i < primeCount; ++i) {
 		if (verbose) {
 			#ifndef VERBOSE_DEBUG
 			if (!(i & APPLY_DEBUG_MASK)) {
 			#endif
-				fprintf(stderr, "%s Applying primes %02.2f%% (%zd of %zd [%lld])\n", 
-					timeNow(), 100 * ((double)i) / ((double)primeCount),i+1, primeCount, primes[i]);
+				PrimeString primeValueString;
+				prime_to_str(primeValueString, primes[i]);
+				fprintf(stderr, "%s [%s] Applying primes %02.2f%% (%zd of %zd [%s])\n", 
+					timeNow(), threadString, 100 * ((double)i) / ((double)primeCount),i+1, 
+					primeCount, primeValueString);
 			#ifndef VERBOSE_DEBUG
 
 			}
@@ -304,17 +324,17 @@ void process(Prime from, Prime to, FILE * file) {
 	size_t endRange = range -1;
 	for (size_t i = 0; i < endRange; ++i) {
 		if (!(i & SCAN_DEBUG_MASK)) {
-			if (verbose) fprintf(stderr, "%s Scanning for new primes %02.2f%%\n", 
-				timeNow(), 100 * ((double) i)/((double) range));
+			if (verbose) fprintf(stderr, "%s [%s] Scanning for new primes %02.2f%%\n", 
+				timeNow(), threadString, 100 * ((double) i)/((double) range));
 		}
 		if (bitmap[i]) {
 			for (int j = 1; j < 16; j+=2) {
 				if (bitmap[i] & checkMask[j]) {
 					Prime value = from + (((Prime) i) << 4) + j;
 					#ifdef VERBOSE_DEBUG
-					if (verbose) fprintf(stderr,"%s found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
+					if (verbose) fprintf(stderr,"%s [%s] found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
 						"result = %.2X, from = %lld\n", 
-						timeNow(), value, (Prime)i, (int) bitmap[i], (int) j, 
+						timeNow(), threadString, value, (Prime)i, (int) bitmap[i], (int) j, 
 						(int) checkMask[j], (int)(bitmap[i] & checkMask[j]), from);
 					#endif
 					printValue(file,value);
@@ -322,16 +342,16 @@ void process(Prime from, Prime to, FILE * file) {
 			}
 		}
 	}
-	if (verbose) fprintf(stderr, "%s Scanning last byte of bitmap for new primes\n", 
-		timeNow(), startValue, endValue);
+	if (verbose) fprintf(stderr, "%s [%s] Scanning last byte of bitmap for new primes\n", 
+		timeNow(), threadString, startValue, endValue);
 	if (bitmap[endRange]) {
 		for (int j = 1; j < 16; j+=2) {
 			if (bitmap[endRange] & checkMask[j]) {
 				Prime value = from + (((Prime) endRange) << 4) + j;
 				#ifdef VERBOSE_DEBUG
-				if (verbose) fprintf(stderr,"%s found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
+				if (verbose) fprintf(stderr,"%s [%s] found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
 					"result = %.2X, from = %lld\n", 
-					timeNow(), value, (Prime)endRange, (int) bitmap[endRange], (int) j, 
+					timeNow(), threadString, value, (Prime)endRange, (int) bitmap[endRange], (int) j, 
 					(int) checkMask[j], (int)(bitmap[endRange] & checkMask[j]), from);
 				#endif
 				if (value < endValue) printValue(file,value);
@@ -339,8 +359,8 @@ void process(Prime from, Prime to, FILE * file) {
 		}
 	}
 
-	if (verbose) fprintf(stderr, "%s All primes have now been discovered between %lld (inc) and %lld (ex)\n",
-		timeNow(), from, to);
+	if (verbose) fprintf(stderr, "%s [%s] All primes have now been discovered between %lld (inc) and %lld (ex)\n",
+		timeNow(), threadString, from, to);
 
 	free(bitmap);
 }
@@ -353,26 +373,25 @@ void processToFile(Prime from, Prime to) {
 	}
 	else {
 		char fileName[FILENAME_MAX];
-		if (fileLabelType = 'g') {
-			snprintf(fileName, FILENAME_MAX,"%s/%sg%04lld%sG%04lld%s",
-				fileDir,filePrefix,from/1000000000,fileInfix,to/1000000000,fileSuffix);
-		}
-		else /* (fileLabelType = 'm') */ {
-			int fromPrecision = (from % 1000000000 ? 3 : 0);
-			int toPrecision = (to % 1000000000 ? 3 : 0);
-			snprintf(fileName, FILENAME_MAX,"%s/%sg%04lld%sG%04lld%s",
-				fileDir,filePrefix,from/1000000,fileInfix,to/1000000,fileSuffix);
-		}
-		if (!silent) fprintf(stderr, "%s Starting new prime file: %s\n",
-			timeNow(), fileName);
+		PrimeString fromString;
+		prime_to_str(fromString, from);
+		PrimeString toString;
+		prime_to_str(toString, to);
+		snprintf(fileName, FILENAME_MAX,"%s/%s%19s%s%19s%s",
+			fileDir,filePrefix,fromString,fileInfix,toString,fileSuffix);
+			
+		for (int i=0; fileName[i]; ++i) if (fileName[i] == ' ') fileName[i] = '0';
+
+		if (!silent) fprintf(stderr, "%s [%s] Starting new prime file: %s\n",
+			timeNow(), threadString, fileName);
 		FILE * file = fopen(fileName, "wx");
 		if (!file) exitError(2, errno);
 		process(from, to, file);
 		if (fclose(file)) {
 			int lerrno = errno;
-			fprintf(stderr, "%s Error: closing prime file reported error "
+			fprintf(stderr, "%s [%s] Error: closing prime file reported error "
 				"contents may have been truncated. \n%s Error: filename %s\n",
-				timeNow(), timeNow(), fileName);
+				timeNow(), threadString, timeNow(), fileName);
 			exitError(2, lerrno);
 		}
 		
@@ -389,16 +408,16 @@ void writeInitializationFile() {
 	if (!file) exitError(2, errno);
 	
 	
-	fprintf(stderr, "%s Writing initialisation to file %s\n",
-			timeNow(), fileName);
+	fprintf(stderr, "%s [%s] Writing initialisation to file %s\n",
+			timeNow(), threadString, fileName);
 	fwrite(primes, sizeof(Prime), primeCount, file);
 	
 
 	if (fclose(file)) {
 		int lerrno = errno;
-		fprintf(stderr, "%s Error: closing prime file reported error "
+		fprintf(stderr, "%s [%s] Error: closing prime file reported error "
 			"contents may have been truncated. \n%s Error: filename %s\n",
-			timeNow(), timeNow(), fileName);
+			timeNow(), threadString, timeNow(), fileName);
 		exitError(2, lerrno);
 	 }
 
@@ -424,39 +443,48 @@ void processAll() {
 
 
 void processAllMultiThread() {
-	if (!silent) fprintf(stderr, "%s Running multithread with %d threads\n", timeNow(), threadCount);
+	if (!silent) fprintf(stderr, "%s [%s] Running multithread with %d threads\n", 
+		timeNow(), threadString, threadCount);
 	for (threadNum = 1; threadNum <= threadCount; ++threadNum) {
 		pid_t child = fork();
 		if (child ==  -1 ) {  // this will need fixing so that it kills the children
 			int lerrno = errno;
-			fprintf(stderr, "%s Error: could not fork for thread %d\n", timeNow(), threadNum);
+			fprintf(stderr, "%s [%s] Error: could not fork for thread %d\n", 
+				timeNow(), threadString, threadNum);
 			exitError(2, lerrno);
 		}
 		if (child == 0) {
-			if (!silent) fprintf(stderr, "%s Thread %d started\n", timeNow(), threadNum);
+			sprintf(threadString, "%02d", threadNum);
+			if (!silent) fprintf(stderr, "%s [%s] Thread %d started\n", 
+				timeNow(), threadString, threadNum);
 			processAll();
-			if (!silent) fprintf(stderr, "%s Thread %d finished\n", timeNow(), threadNum);
+			if (!silent) fprintf(stderr, "%s [%s] Thread %d finished\n", 
+				timeNow(), threadString, threadNum);
 			exit(0); // Once the thread has processed all cleanup should be left to the master if there is any
 		}
 	}
 
 	int exitStatus = 0;
 
-	if (!silent) fprintf(stderr, "%s All threads now started\n", timeNow(), threadCount);
+	if (!silent) fprintf(stderr, "%s [%s] All threads now started\n", 
+		timeNow(), threadString, threadCount);
 
 	for (threadNum = 0; threadNum < threadCount; ++threadNum) {
 		int status;
 		pid_t child = wait(&status);
 		if (child == -1) {
 			int lerrno = lerrno;
-			fprintf(stderr, "%s Error: wait for child thread. There are believed to be %d thread(s) still running\n", timeNow(), threadCount - threadNum);
+			fprintf(stderr, "%s [%s] Error: wait for child thread. There are believed to be %d thread(s) still running\n", 
+				timeNow(), threadString, threadCount - threadNum);
 			exitError(2, lerrno);
 		}
-		if (verbose) fprintf(stderr, "%s Thread completed with return code %d\n", timeNow(), (int)WEXITSTATUS(status));
+		if (verbose) fprintf(stderr, "%s [%s] Thread completed with return code %d\n", 
+			timeNow(), threadString, (int)WEXITSTATUS(status));
 		if (WEXITSTATUS(status) != 0 && exitStatus == 0) exitStatus = WEXITSTATUS(status);
 	}
 
-	if (!silent) fprintf(stderr, "%s All threads now terminated\n", timeNow(), threadCount);    
+	if (!silent) fprintf(stderr, "%s [%s] All threads now terminated\n", 
+		timeNow(), threadString, threadCount);    
 
 	if (exitStatus != 0) exit(exitStatus);
 }
@@ -479,7 +507,6 @@ void setDefaults() {
 	filePrefix = "prime.";
 	fileSuffix = ".txt";
 	fileInfix = "-";
-	fileLabelType = 'g';
 	useStdout = 1;
 	initializeOnly = 0;
 }
@@ -498,8 +525,8 @@ void parseArgs(int argC, char ** argV) {
 				{"end-million",  required_argument, 0, 'M'},
 				{"start-billion",  required_argument, 0, 'g'},
 				{"end-billion",  required_argument, 0, 'G'},
-				{"start-trillion",  required_argument, 0, 'g'},
-				{"end-trillion",  required_argument, 0, 'G'},
+				{"start-trillion",  required_argument, 0, 't'},
+				{"end-trillion",  required_argument, 0, 'T'},
 				{"chunk-million", required_argument, 0, 'c'},
 				{"chunk-billion", required_argument, 0, 'C'},
 				{"prefix", required_argument, 0, 1000},
@@ -534,8 +561,8 @@ void parseArgs(int argC, char ** argV) {
 			case 'G': scale = "1000000000"; number =  'e'; break;
 			case 't': scale = "1000000000000"; number = 's'; break;
 			case 'T': scale = "1000000000000"; number =  'e'; break;
-			case 'c': scale = "1000000"; number = 'c'; fileLabelType = 'm'; break;
-			case 'C': scale = "1000000000"; number = 'c'; fileLabelType = 'g'; break;
+			case 'c': scale = "1000000"; number = 'c'; break;
+			case 'C': scale = "1000000000"; number = 'c'; break;
 			case 1000: filePrefix = optarg; break;
 			case 1001: fileSuffix = optarg; break;
 			case 1002: fileInfix = optarg; break;
@@ -548,12 +575,12 @@ void parseArgs(int argC, char ** argV) {
 			case 'i': initializeOnly = 1; break;
 			case '?': 
 				if (optopt) {
-					fprintf(stderr, "%s Error: option -%c\n", 
-						timeNow(), optopt);
+					fprintf(stderr, "%s [%s] Error: option -%c\n", 
+						timeNow(), threadString, optopt);
 				}
 				else {
-					fprintf(stderr, "%s Error: option %s\n", 
-						timeNow(), argV[optind-1]);
+					fprintf(stderr, "%s [%s] Error: option %s\n", 
+						timeNow(), threadString, argV[optind-1]);
 				}
 				exit(1);
 				break;
@@ -563,9 +590,10 @@ void parseArgs(int argC, char ** argV) {
 			Prime value;
 			Prime pscale;
 			str_to_prime(value, optarg);
-			str_to_prime(pscale,scale);
+			str_to_prime(pscale, scale);
 			
-			if (number == 'e') prime_mul(endValue, value, pscale);
+			if (number == 's') prime_mul(startValue, value, pscale);
+			else if (number == 'e') prime_mul(endValue, value, pscale);
 			else if (number == 'c') prime_mul(chunkSize, value, pscale);
 		}
 		else if (threadingNumber) {
@@ -573,8 +601,8 @@ void parseArgs(int argC, char ** argV) {
 			char * endptr;
 			value = strtoll(optarg, &endptr, 10);
 			if (*endptr || value <= 0 || value > 1000) {
-				fprintf(stderr, "%s Error: threading number %s\n", 
-					timeNow(), optarg);
+				fprintf(stderr, "%s [%s] Error: threading number %s\n", 
+					timeNow(), threadString, optarg);
 				exit(1);
 			}
 			if (threadingNumber == 'x') {
@@ -594,32 +622,37 @@ void parseArgs(int argC, char ** argV) {
 	int errorFlag = 0;
 
 	if (endValue <= startValue) {
-		fprintf(stderr, "%s Error: end value (%lld) is not larger than start value (%lld).\n", 
-			timeNow(), endValue, startValue);
+		PrimeString startValueString;
+		prime_to_str(startValueString, startValue);
+		PrimeString endValueString;
+		prime_to_str(endValueString, endValue);
+		
+		fprintf(stderr, "%s [%s] Error: end value (%s) is not larger than start value (%s).\n", 
+			timeNow(), threadString, endValueString, startValueString);
 		errorFlag = 1;
 	}
 
 	if (strchr(filePrefix, '/') || strchr(fileInfix, '/') || strchr(fileSuffix, '/')) {
-		fprintf(stderr, "%s Error: '/' found in file name, directories MUST be specified using --dir\n", 
-			timeNow(), endValue, startValue);
+		fprintf(stderr, "%s [%s] Error: '/' found in file name, directories MUST be specified using --dir\n", 
+			timeNow(), threadString, endValue, startValue);
 		errorFlag = 1;
 	}
 
 	if (threadCount < 1) {
-		fprintf(stderr, "%s Error: invalid thread-count (%d). Must be 1 or more.\n",
-			timeNow(), threadCount);
+		fprintf(stderr, "%s [%s] Error: invalid thread-count (%d). Must be 1 or more.\n",
+			timeNow(), threadString, threadCount);
 		errorFlag = 1;
 	}
 
 	if (threadNum < 0 || threadNum > threadCount) {
-		fprintf(stderr, "%s Error: invalud thread-num (%d).  Must be between 1 and thread-count (%d).\n",
-			timeNow(), threadNum, threadCount);
+		fprintf(stderr, "%s [%s] Error: invalud thread-num (%d).  Must be between 1 and thread-count (%d).\n",
+			timeNow(), threadString, threadNum, threadCount);
 		errorFlag = 1;
 	}
 
 	if (threadCount > 1 && useStdout) {
-		fprintf(stderr, "%s Warning: Using thread-count > 1 (multithreading) on the stdout will not produce contiguous primes.\n"
-		"%s Warning: Recommend using --file or manually dividing threads by range (-g and -G).\n", timeNow(), timeNow());
+		fprintf(stderr, "%s [%s] Warning: Using thread-count > 1 (multithreading) on the stdout will not produce contiguous primes.\n"
+		"%s [%s] Warning: Recommend using --file or manually dividing threads by range (-g and -G).\n", timeNow(), threadString, timeNow(), threadString);
 	}
 
 	if (errorFlag) exit(1);

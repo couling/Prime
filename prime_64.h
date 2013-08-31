@@ -8,11 +8,13 @@
 #endif // PRIME_BYTE_COUNT
 
 #define PRIME_BYTE_COUNT sizeof(long long)
-#define PRIME_STRING_SIZE ( (int)( ( ( PRIME_BYTE_COUNT * 8 * 3.01 ) / 10 ) + 1 ) )
+#define PRIME_STRING_SIZE ( (int)( ( ( PRIME_BYTE_COUNT * 8 * 3 ) / 10 ) + 3 ) )
 
 
 typedef long long Prime;
+typedef char PrimeString[PRIME_STRING_SIZE];
 
+void printValue(FILE * file, Prime value);
 #define prime_set_num(target, value) target = value
 #define str_to_prime(target, value) target = _str_to_prime(value)
 Prime _str_to_prime(char * s);

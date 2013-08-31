@@ -1,3 +1,11 @@
+build/prime: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
+	gcc -O3 -s -o $@ $^ -lm
+
+
+build/prime-slow: obj/prime-slow.o obj/prime_64.o obj/prime_shared.o | build
+	gcc -O3 -s -o $@ $^ -lm
+
+
 all: build/prime build/prime-slow
 
 
@@ -24,9 +32,3 @@ obj/%.o: %.c makefile | obj
 
 -include obj/*.d
 
-
-build/prime: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
-	gcc -O3 -s -o $@ $^ -lm
-
-build/prime-slow: obj/prime-slow.o obj/prime_shared.o | build
-	gcc -O3 -s -o $@ $^ -lm

@@ -17,6 +17,7 @@ This was obsoleted by bitprime.c
 #include <getopt.h>
 
 #include "prime_shared.h"
+#include "prime_64.h"
 
 #define ALLOC_UNIT 128;
 
@@ -142,69 +143,10 @@ void final() {
 
 
 
-void parseArgs(int argC, char ** argV) {	
-
-	static struct option longOptions[] =
-             {
-               {"start",  required_argument, 0, 'o'},
-               {"end",  required_argument, 0, 'O'},
-               {"start-thousand", required_argument, 0, 'k'},
-               {"end-thousand", required_argument, 0, 'K'},
-               {"start-million",  required_argument, 0, 'm'},
-               {"end-million",  required_argument, 0, 'M'},
-               {"start-billion",  required_argument, 0, 'g'},
-               {"end-billion-",  required_argument, 0, 'G'},
-               {"start-trillion",  required_argument, 0, 't'},
-			   {"end-trillion",  required_argument, 0, 'T'},
-			   {"start-quadrillion",  required_argument, 0, 'p'},
-			   {"end-quadrillion",  required_argument, 0, 'P'},
-               {0, 0, 0, 0}
-             };	
-	static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:P:p:";
-
-	int givenOption;
-	
-	while ((givenOption = getopt_long (argC, argV, shortOptions, longOptions, NULL)) != -1) {
-		long long scale;
-		int number;
-		switch (givenOption) {
-			case 'o': scale = 1ll; number = 's'; break;
-			case 'O': scale = 1ll; number = 'e'; break;
-			case 'k': scale = 1000ll; number = 's'; break;
-			case 'K': scale = 1000ll; number = 'e'; break;
-			case 'm': scale = 1000000ll; number = 's'; break;
-			case 'M': scale = 1000000ll; number = 'e'; break;
-			case 'g': scale = 1000000000ll; number = 's'; break;
-			case 'G': scale = 1000000000ll; number =  'e'; break;
-			case 't': scale = 1000000000000ll; number = 's'; break;
-			case 'T': scale = 1000000000000ll; number = 'e'; break;
-			case 'p': scale = 1000000000000000ll; number = 's'; break;
-			case 'P': scale = 1000000000000000ll; number = 'S'; break;
-		}
-
-		if (number == 's' || number == 'e') {
-			long long value;
-
-			char * endptr;
-			value = strtoll(optarg, &endptr, 10);
-			if (endptr == optarg || value < 0) {
-				fprintf(stderr, "%s Error: invalid number %s\n", timeNow(), optarg);
-				exit(1);
-			}
-
-			if (number == 's') startValue = value * scale;
-			else /* if (number == 'e')*/ endValue = value * scale;
-		}
-	}
-	
-	fileCount = optind - argC;
-	files = argV + optind;
-}
-
-
-
 int main(int argC, char ** argV) {
 	parseArgs(argC, argV);
+	str_to_prime(startValue, startValueString);
+	str_to_prime(endValue, endValueString);
 	if (fileCount == 0) initializeSelf();
 	else initializeFromFile();
 	process();

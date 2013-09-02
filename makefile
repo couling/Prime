@@ -1,5 +1,5 @@
 build/prime: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
-	gcc -O3 -s -o $@ $^ -lm
+	gcc -O3 -s -o $@ $^ -lm -lpthread
 
 
 build/prime-slow: obj/prime-slow.o obj/prime_64.o obj/prime_shared.o | build

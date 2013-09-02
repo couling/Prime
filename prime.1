@@ -1,0 +1,127 @@
+.TH PRIME 1 "September 2013" "Philip Couling" "User Commands" 
+.SH NAME
+prime
+.SH SYNOPSIS
+prime [options ...] [initialisation file]
+.SH DESCRIPTION
+Generates prime numbers very rapidly.  The current version uses the c lanugage 
+.B long long 
+data type which on most systems will be 64 bit.
+
+This program has an initialisation phase which generates ever prime number up to the square root of the end of the search range.  This can take a long time if you are searching for large prime numbers.  To avoid this step every time you call 
+.B prime
+you can generate an initialisation file which will be memory mapped instead of generating it each time.  To do this use
+.B prime \-bf 
+and then reference this files as the "initialisation file" mentioned in the synopsis.
+.SH OPTIONS
+.TP 
+.B \-a \-\-text\-out
+Sets the output file mode to ASKII text.  Each prime number will be written on its own line.
+This flag will override the \-b flag.  Which ever of them is last will take precident.
+.TP 
+.B \-b \-\-binary\-out
+Sets the output file mode to binary.  Each prime will be written as a 64 bit integer (C long long type).
+The endianess will depend of the system architechture.
+.TP 
+.B \-c size  \-\-chunk-thousand size
+Sets the chunk size to be processed.  This should be larg enough to improve performance but not so large that requires too much RAM.  Each thread will require the chunksize/16 bytes of RAM to function.  The default chunk size is 1 billion (1000,000,000 [62,500,000 bytes of RAM]).
+
+Note that the chunk size will also be used to break up the files if the 
+.B -f --file
+switch is used.
+.TP
+.B \-C size \-\-chunk\-billion size
+Same as \-c but size is interpreted as a number of billions. 
+.TP
+.B \-d \-\-dir
+Specifies the directory to place the output files if the
+.B \-f
+switch is used.  This defaults to ".".
+.TP
+.B \-f \-\-multi\-file
+Sets prime to write to files instead of the stdout.  Each chunk will be written to its own file.
+.TP
+.B \-F \-\-single\-file
+Sets prime to write to a single file instead of stdout. All chunks will be written in order which will slow the program down.  Where it is better to use \-\-multi\-file if at all possible.
+.TP
+.B \-g num  \-\-start\-billion num
+Sets the start of the search range in billions.
+.TP
+.B \-G num  \-\-end\-billion num
+Sets the end of the search range in billions.
+.TP
+.B \-k num  \-\-start\-thousand num
+Sets the start of the search range in thousands.
+.TP
+.B \-K num \-\-end\-thousand num
+Sets the end of the search range in thousands.
+.TP
+.B \-K num \-\-end\-thousand num
+Sets the end of the search range in thousands.
+.TP
+.B \-m num  \-\-start-million num
+Sets the start of the search range in millions.
+.TP
+.B \-M num  \-\-end-million num
+Sets the end of the search range in millions.
+.TP 
+.B \-o num  \-\-start num
+Sets the start of the search range.
+.TP 
+.B \-O num  \-\-end num
+Sets the end of the search range.
+.TP
+.B \-q \-\-quiet
+Switchs off all writing to the stderr except for errors causing the job to fail.
+Normally prime will write its progress, this flag turns it off.  There is
+no difference between \-s, \-\-slent, \-q and \-\-quiet.
+.TP
+.B \-s \-\-silent
+See \-q
+.TP
+.B \-t num  \-\-start-trillion num
+Sets the start of the search range in trillions.
+.TP
+.B \-T  num \-\-end-trillion num
+Sets the end of the search range in trillions.
+.TP
+.B \-v \-\-verbose
+Switches on an additional number of status messages. This switch has no effect
+when used with any of the quiet (
+.B \-q
+) switchs.
+.TP
+.B \-x n  \-\-thread-count n
+Specifies the number of threads to use (default 1).
+.TP
+.B \-\-file-prefix prefix
+When 
+.B \-\-file
+is set this can be used to set the start of the name (everything before the starting number).
+By default this is set to "prime."
+.TP
+.B \-\-file-infix prefix
+When
+.B \-\-file
+is set this can be used to set the middle of the file name (everything after the starting number and before the finishing number).
+By default this is set to "-"
+.TP
+.B \-\-file-suffix prefix
+When
+.B \-\-file
+is set this can be used to set the end of the name (everything after the finishing number number).
+By default this is set to ".txt".  It is usually worth specifying this if 
+.B \-b
+is used.
+.SH EXAMPLES
+.TP
+Run single threaded writing every prime number up to 100 billion (100,000,000,000)
+prime --end-billion 100 > result.txt
+.TP
+Generate initialisation file valid for numbers up to 1 billion billion (1,000,000,000,000,000,000).
+prime --file --file-suffix .dat --binary-out
+.TP
+Run with 4 threads using an initialisation file (note initialisation files are NOT required for multithreading)
+prime --start-trillion 1000 --end-trillion 1001 --thread-count 4 prime.0000000000000000000-0000000001000000000.dat
+.SH AUTHOR(S)
+Philip Couling

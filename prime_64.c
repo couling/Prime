@@ -9,10 +9,7 @@
 
 void printValue(FILE * file, Prime value) {
 	if (fprintf(file,"%lld\n", value) < 0) {
-		int lerrno = errno;
-		fprintf(stderr, "%s Error: Failed to write prime number (%lld)\n",
-			timeNow(), value);
-		exitError(2, lerrno);
+		exitError(2, errno, "Failed to write prime number (%lld)", value);
 	}
 }
 
@@ -24,9 +21,7 @@ Prime _str_to_prime(char * s) {
 	char * endptr;
 	value = strtoll(s, &endptr, 10);
 	if (*endptr || value < 0) {
-		fprintf(stderr, "%s Error: invalid number %s\n", 
-			timeNow(), s);
-		exit(1);
+		exitError(1, 0, "invalid number %s", s);
 	}
 	
 	return value;

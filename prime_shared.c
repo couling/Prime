@@ -1,3 +1,4 @@
+#define  _XOPEN_SOURCE
 #include <time.h>
 
 #include <stdio.h>
@@ -6,7 +7,10 @@
 #include <errno.h>
 #include <getopt.h>
 #include <stdarg.h>
+#include <pthread.h>
 
+#include <sys/file.h>
+#include <stdio.h>
 #include "prime_shared.h"
 
 // Config parameters
@@ -18,44 +22,56 @@ char * chunkSizeString = "1";
 char * chunkSizeScale = "1000000000";
 
 int threadCount = 1;
-int threadNum = 0;
 int singleThread = 0;
-char threadString[11] = "xx";
+pthread_key_t threadNumKey;
 
 char * fileDir = ".";
 char * filePrefix = "prime.";
 char * fileSuffix = ".txt";
 char * fileInfix = "-";
 int useStdout = 1;
+int singleFile = 1;
+int fileType = FILE_TYPE_TEXT;
 
 int silent = 0;
 int verbose = 0;
 
 // For for file based initialisation
-int initializeOnly = 0; // create an initialisation file
 char * * files;
 int fileCount;
 
 
 
-void printToStdErr(char * str, ...) {
-	fprintf(stderr, "%s [%s] ", timeNow(), threadString);
+void stdLog(char * str, ...) {
+	int * threadNumPt = pthread_getspecific(threadNumKey);
+	int threadNum = threadNumPt ? *threadNumPt : 0;
+	flockfile(stderr);
+	fprintf(stderr, "%s [%02d] ", timeNow(), threadNum);
 	va_list ap;
 	va_start(ap, str);
 	vfprintf(stderr, str, ap);
 	va_end(ap);
+	fprintf(stderr, "\n");
+	funlockfile(stderr);
 }
 
 
 
-void raiseError(int num, char * str, ...) {
-	fprintf(stderr, "%s [%s] Error: ", timeNow(), threadString);
+void exitError(int num, int errorNumber, char * str, ...) {
+	int * threadNumPt = pthread_getspecific(threadNumKey);
+	int threadNum = threadNumPt ? *threadNumPt : 0;
+	flockfile(stderr);
+	fprintf(stderr, "%s [%02d] Error: ", timeNow(), threadNum);
     va_list ap;
     va_start(ap, str);
     vfprintf(stderr, str, ap);
     va_end(ap);
+	fprintf(stderr, "\n");
+	if (errorNumber) fprintf(stderr, "%s [%02d] Error: %s\n", timeNow(), threadNum,  strerror(errorNumber));
+	funlockfile(stderr);
 	exit(num);
 }
+
 
 
 
@@ -71,16 +87,9 @@ char * timeNow() {
 
 
 
-void exitError(int returnCode, int lerrno) {
-	fprintf(stderr, "%s [%s] Error: %s\n", timeNow(), threadString, strerror(lerrno));
-	exit(returnCode);
-} 
-
-
-
 void * mallocSafe(size_t bytes) {
 	void * result = malloc(bytes);
-	if (!result) exitError(255, errno);
+	if (!result) exitError(255, errno, "Could not alocate to %zd bytes", bytes);
 	return result;
 }
 
@@ -88,11 +97,12 @@ void * mallocSafe(size_t bytes) {
 
 void * reallocSafe(void * existing, size_t bytes) {
 	void * result = realloc(existing, bytes);
-	if (!result) exitError(255, errno);
+	if (!result) exitError(255, errno, "Could not realocate to %zd bytes", bytes);
 	return result;
 }
 
 void parseArgs(int argC, char ** argV) {
+	pthread_key_create(&threadNumKey, NULL);
 
     static struct option longOptions[] =
             {
@@ -108,19 +118,21 @@ void parseArgs(int argC, char ** argV) {
                 {"end-trillion",  required_argument, 0, 'T'},
                 {"chunk-million", required_argument, 0, 'c'},
                 {"chunk-billion", required_argument, 0, 'C'},
-                {"prefix", required_argument, 0, 1000},
-                {"suffix", required_argument, 0, 1001},
-                {"infix", required_argument, 0, 1002},
-                {"dir", required_argument, 0, 1003},
+                {"file-prefix", required_argument, 0, 1000},
+                {"file-suffix", required_argument, 0, 1001},
+                {"file-infix", required_argument, 0, 1002},
+                {"dir", required_argument, 0, 'd'},
                 {"thread-count", required_argument, 0, 'x'},
-                {"thread-num", required_argument, 0, 'X'},
                 {"silent", no_argument, 0, 's'},
+				{"quiet", no_argument, 0 , 'q'},
                 {"verbose", no_argument, 0, 'v'},
-                {"file", no_argument, 0, 'f'},
-                {"initialize-only", no_argument, 0, 'i'},
+                {"multi-file", no_argument, 0, 'f'},
+				{"single-file", no_argument, 0, 'F'},
+				{"text-out", no_argument, 0, 'a'},
+				{"binary-out", no_argument, 0, 'b'},
                 {0, 0, 0, 0}
             };
-    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:X:x:svfi";
+    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:x:abdqsvfF";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -143,40 +155,34 @@ void parseArgs(int argC, char ** argV) {
             case 1000: filePrefix = optarg; break;
             case 1001: fileSuffix = optarg; break;
             case 1002: fileInfix = optarg; break;
-            case 1003: fileDir = optarg; break;
+            case 'd': fileDir = optarg; break;
             case 'x': threadingNumber = 'x'; break;
-            case 'X': threadingNumber = 'X'; break;
-            case 's': silent = 1; verbose = 0; break;
+            case 'q':
+			case 's': silent = 1; verbose = 0; break;
             case 'v': verbose = !silent; break;
-            case 'f': useStdout = 0; break;
-            case 'i': initializeOnly = 1; break;
+            case 'f': useStdout = 0; singleFile = 0; break;
+			case 'F': useStdout = 0; singleFile = 1; break;
+			case 'a': fileType = FILE_TYPE_TEXT; break;
+			case 'b': fileType = FILE_TYPE_SYSTEM_BINARY; break;
             case '?':
                 if (optopt) {
-                    fprintf(stderr, "%s [%s] Error: option -%c\n",
-                        timeNow(), threadString, optopt);
+                    exitError(1,0,"invalid option -%c", optopt);
                 }
                 else {
-                    fprintf(stderr, "%s [%s] Error: option %s\n",
-                        timeNow(), threadString, argV[optind-1]);
+                    exitError(1,0,"invalid option --%s", argV[optind-1]);
                 }
-                exit(1);
                 break;
         }
 
         if (threadingNumber) {
-            long long value;
+            long value;
             char * endptr;
-            value = strtoll(optarg, &endptr, 10);
+            value = strtol(optarg, &endptr, 10);
             if (*endptr || value <= 0 || value > 1000) {
-                fprintf(stderr, "%s [%s] Error: threading number %s\n",
-                    timeNow(), threadString, optarg);
-                exit(1);
+				exitError(1,0, "threading number %s is invalud. Must be between 1 and 1000", optarg);
             }
             if (threadingNumber == 'x') {
                 threadCount = value;
-            }
-            else if (threadingNumber == 'X') {
-                threadNum = value;
             }
         }
     }
@@ -189,29 +195,12 @@ void parseArgs(int argC, char ** argV) {
     int errorFlag = 0;
 
     if (strchr(filePrefix, '/') || strchr(fileInfix, '/') || strchr(fileSuffix, '/')) {
-        fprintf(stderr, "%s [%s] Error: '/' found in file name, directories MUST be specified using --dir\n",
-            timeNow(), threadString);
-        errorFlag = 1;
+        exitError(1,0,"'/' found in file name, directories MUST be specified using --dir");
     }
 
     if (threadCount < 1) {
-        fprintf(stderr, "%s [%s] Error: invalid thread-count (%d). Must be 1 or more.\n",
-            timeNow(), threadString, threadCount);
-        errorFlag = 1;
+        exitError(1,0,"invalid thread-count (%d). Must be 1 or more.", threadCount);
     }
-
-    if (threadNum < 0 || threadNum > threadCount) {
-        fprintf(stderr, "%s [%s] Error: invalud thread-num (%d).  Must be between 1 and thread-count (%d).\n",
-            timeNow(), threadString, threadNum, threadCount);
-        errorFlag = 1;
-    }
-
-    if (threadCount > 1 && useStdout) {
-        fprintf(stderr, "%s [%s] Warning: Using thread-count > 1 (multithreading) on the stdout will not produce contiguous primes.\n"
-        "%s [%s] Warning: Recommend using --file or manually dividing threads by range (-g and -G).\n", timeNow(), threadString, timeNow(), threadString);
-    }
-
-    if (errorFlag) exit(1);
 
     fileCount = optind - argC;
     files = argV + optind;

@@ -243,10 +243,13 @@ void finalFile() {
 
 void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
     int threadNum;
-    if (singleFile) {
+    if (singleFile && !singleThread) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
         sem_wait(&threads[threadNum].writeSemaphore);
     }
+	if (from <= 2 && to >=2) {
+		printValue(file,2ll);
+	}
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
         if (!(i & SCAN_DEBUG_MASK)) {
@@ -279,7 +282,7 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
             }
         }
     }
-    if (singleFile) {
+    if (singleFile && !singleThread) {
         sem_post(threads[threadNum].nextThreadWriteSemaphore);
     }
 }
@@ -288,9 +291,13 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
 
 void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
 	int threadNum;
-	if (singleFile) {
+	if (singleFile && !singleThread) {
 		threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
 		sem_wait(&threads[threadNum].writeSemaphore);
+	}
+	if (from <= 2 && to >= 2) {
+		Prime two = 2;
+		fwrite(&two, sizeof(Prime), 1, file); 
 	}
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
@@ -324,7 +331,7 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
             }
         }
     }
-	if (singleFile) {
+	if (singleFile && !singleThread) {
 		sem_post(threads[threadNum].nextThreadWriteSemaphore);
 	}
 }
@@ -339,10 +346,12 @@ void process(Prime from, Prime to, FILE * file) {
 		prime_to_str(toString, to);
 		stdLog("Running process for %s (inc) to %s (ex)", fromString, toString);
 	}
+	Prime askFrom = from; // This is what were were asked to calculate from
 	if (from < 2) {
 		// Process ignores even primes
 		// Process doesnt know 1 isnt a prime, so skip it!
 		from = 2;
+		askFrom = 2;
 	}
 	else {
 		// Process expects to be aligned to a even number.
@@ -376,7 +385,7 @@ void process(Prime from, Prime to, FILE * file) {
 		applyPrime(primes[i], from, bitmap, range);
 	}
 
-	writePrime(from, to, range, bitmap, file);
+	writePrime(askFrom, to, range, bitmap, file);
 
 	if (verbose) stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", from, to);
 
@@ -457,7 +466,7 @@ void runThreads() {
 		threads[0].threadNum = 0;
 	}
 	else{
-		if (singleFile) {
+		if (singleFile && !singleThread) {
 			// initialise the semaphores.
 			// these will be used to sequence the writes correctly.
 			sem_init(&(threads[0].writeSemaphore), 0, 1);
@@ -481,7 +490,7 @@ void runThreads() {
 			int * returnValue;
 			pthread_join(threads[threadNum].threadHandle, (void**)&returnValue);
 		}
-		if (singleFile) {
+		if (singleFile && !singleThread) {
 			for (int threadNum = 0; threadNum < threadCount; ++threadNum) {
 				sem_destroy(&threads[threadNum].writeSemaphore);
 			}

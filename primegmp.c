@@ -4,6 +4,9 @@
 #include "primegmp.h"
 #include "primeshared.h"
 
+Prime prime_1;
+Prime prime_2;
+
 char * prime_to_str(char * s, Prime prime) {
     Prime buffer;
     mpn_copyd(buffer,prime,PRIME_SIZE);
@@ -156,3 +159,9 @@ void prime_sqr(Prime target, Prime in) {
 void prime_sqrt(Prime target, Prime in) {
 }
 
+
+
+void prime_init() {
+	prime_set_num(prime_1, 1);
+	prime_set_num(prime_2, 2);
+}

@@ -23,6 +23,7 @@ void prime_to_str(char * target, Prime value);
 #define prime_mul(target, value1, value2) target = value1 * value2
 #define prime_sqrt(target, value) target = (Prime) sqrtl((long double) value )
 
- 
+#define prime_1 1
+#define prime_2 2
 
 #endif // prime_long_long_h

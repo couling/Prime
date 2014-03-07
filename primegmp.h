@@ -26,7 +26,7 @@ void prime_left_shift(Prime target, Prime in, unsigned int count);
 void prime_right_shift(Prime target, Prime in, unsigned int count);
 
 void prime_mul(Prime target, Prime in1, Prime in2);
-void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2);
+//void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2);
 void prime_div(Prime div, Prime in1, Prime in2);
 void prime_mod(Prime mod, Prime in1, Prime in2);
 

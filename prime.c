@@ -347,7 +347,7 @@ void process(Prime from, Prime to, FILE * file) {
 		stdLog("Running process for %s (inc) to %s (ex)", fromString, toString);
 	}
 	Prime askFrom = from; // This is what were were asked to calculate from
-	if (prime_lt(from, prime_2) {
+	if (prime_lt(from, prime_2)) {
 		// Process ignores even primes
 		// Process doesnt know 1 isnt a prime, so skip it!
 		prime_cp(from, prime_2);
@@ -357,7 +357,7 @@ void process(Prime from, Prime to, FILE * file) {
 		// Process expects to be aligned to a even number.
 		// process ignores even numbers so adding an extra even
 		// number won't cause process to find an extra prime
-		if (prime_is_odd(from)) prime_sub_prime(prime_1);
+		if (prime_is_odd(from)) prime_sub_prime(from, from, prime_1);
 	}
 	
 	size_t range = (to - from + 15) / 16;
@@ -411,7 +411,7 @@ FILE * openFileForPrime(Prime from, Prime to) {
 
 
 
-void processAllChunks(void * threadPt) {
+void * processAllChunks(void * threadPt) {
 	ThreadDescriptor * thread = (ThreadDescriptor*) threadPt;
 	pthread_setspecific(threadNumKey, &thread->threadNum);
 	if (!silent) stdLog("Thread %d started", thread->threadNum);
@@ -422,7 +422,7 @@ void processAllChunks(void * threadPt) {
 	prime_sub_prime(to, startValue, to);
 	prime_add_prime(to, to, chunkSize);
 	int chunkNum = 0;
-	while (prime_lt(to, endValue) {
+	while (prime_lt(to, endValue)) {
 		if (chunkNum % threadCount == (thread->threadNum - 1)) {
 			if (useStdout) process(from, to, stdout);
 			else if (singleFile) process(from, to, theSingleFile);
@@ -454,6 +454,7 @@ void processAllChunks(void * threadPt) {
 		}
 	}
 	if (!silent) stdLog("Thread %d finished", thread->threadNum);
+	return NULL;
 }
 
 

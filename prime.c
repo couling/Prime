@@ -33,7 +33,13 @@ for each time a prime is touched it uses addition and not division.
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "prime_64.h"
+#ifdef PRIME_64
+# include "prime_64.h"
+#endif
+
+#ifdef PRIME_GMP
+# include "primegmp.h"
+#endif
 
 #include "prime_shared.h"
 
@@ -85,11 +91,12 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 	// process() would be able to determine when to use the two through 
 	// binary search.
 	
-	// value = (prime ^ 2) // - offset;
 	Prime value;
-	prime_mul(value, prime, prime);
+	prime_mul_prime(value, prime, prime);
 	// prime_sub_prime(value, prime, offset);
 
+	// This function subtracts the offset from the prime rather than adding it to the map
+	// It's okay. This works.
 	if (prime_lt(value, offset)) {
 		// value = prime - ((offset - 1) % prime) - 1;
 		prime_sub_num(value, offset, 1);
@@ -99,13 +106,16 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 		if (!prime_is_odd(value)) prime_add_prime(value, prime);
 	}
 	else  {
+		// value = (prime ^ 2) - offset;
 		prime_sub_prime(value, value, offset);
 	}
 	Prime stepSize;
-	prime_mul(stepSize, prime, prime_2);
+	prime_mul_num(stepSize, prime, 2);
 
-	Prime applyTo = ((Prime) mapSize) << 4;
-	while (value < applyTo) {
+	Prime applyTo;
+	prime_set_num(applyTo, mapSize);
+	prime_mul_num(applyTo, applyTo, 16);
+	while (prime_lt(value,applyTo)) {
 		#ifdef VERBOSE_DEBUG
 		if (verbose) stdLog("prime = %lld, value = %lld, map[%lld] = %.2X, "
 			"removeMask[%d] = %.2X, result = %.2X, offset = %lld", 
@@ -113,8 +123,10 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 			(int) removeMask[value & 0x0F], (int)(map[value >> 4] & removeMask[value & 0x0F]),
 			offset);
 		#endif
-		map[value >> 4] &= removeMask[value & 0x0F];
-		value += stepSize;
+		Prime tmp;
+		prime_div_num(tmp, value, 16);
+		map[prime_get_num(tmp)] &= removeMask[prime_get_num(value) & 0x0F];
+		prime_add_prime(value, value, stepSize);
 	}
 }
 

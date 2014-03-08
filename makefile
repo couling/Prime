@@ -1,12 +1,15 @@
-build/prime: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
-	gcc -O3 -s -o $@ $^ -lm -lpthread
+all: build/prime_64 build/prime_gmp build/prime-slow
+
+build/prime-64: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
+	gcc -DPRIME_64 -O3 -s -o $@ $^ -lm -lpthread
+	
+build/prime-gmp: obj/prime.o obj/prime_64.o obj/prime_shared.o | build
+	gcc -DPRIME_GMP -O3 -s -o $@ $^ -lm -lpthread
 
 
 build/prime-slow: obj/prime-slow.o obj/prime_64.o obj/prime_shared.o | build
 	gcc -O3 -s -o $@ $^ -lm
 
-
-all: build/prime build/prime-slow
 
 
 clean:

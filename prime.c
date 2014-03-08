@@ -91,13 +91,19 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 	// prime_sub_prime(value, prime, offset);
 
 	if (prime_lt(value, offset)) {
-		value = prime - ((offset - 1) % prime) - 1;
-		if (!(value & 1)) value += prime;
+		// value = prime - ((offset - 1) % prime) - 1;
+		prime_sub_num(value, offset, 1);
+		prime_mod(value, value, prime);
+		prime_sub_prime(value, prime, value);
+		prime_sum_num(value, value, 1);
+		if (!prime_is_odd(value)) prime_add_prime(value, prime);
 	}
 	else  {
 		prime_sub_prime(value, value, offset);
 	}
-	Prime stepSize = prime << 1;
+	Prime stepSize;
+	prime_mul(stepSize, prime, prime_2);
+
 	Prime applyTo = ((Prime) mapSize) << 4;
 	while (value < applyTo) {
 		#ifdef VERBOSE_DEBUG

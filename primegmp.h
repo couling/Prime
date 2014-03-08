@@ -16,6 +16,7 @@ typedef mp_limb_t Prime[PRIME_SIZE];
 char * prime_to_str(char * s, Prime prime);
 void str_to_prime(Prime prime, char * s);
 void prime_set_num(Prime prime, mp_limb_t in);
+#define prime_get_num(prime) (prime[0])
 
 void prime_add_num(Prime target, Prime in1, mp_limb_t in2);
 void prime_add_prime(Prime target, Prime in1, Prime in2);

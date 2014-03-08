@@ -85,10 +85,17 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 	// process() would be able to determine when to use the two through 
 	// binary search.
 	
-	Prime value = (prime * prime) - offset;
-	if (value < 0) {
+	// value = (prime ^ 2) // - offset;
+	Prime value;
+	prime_mul(value, prime, prime);
+	// prime_sub_prime(value, prime, offset);
+
+	if (prime_lt(value, offset)) {
 		value = prime - ((offset - 1) % prime) - 1;
 		if (!(value & 1)) value += prime;
+	}
+	else  {
+		prime_sub_prime(value, value, offset);
 	}
 	Prime stepSize = prime << 1;
 	Prime applyTo = ((Prime) mapSize) << 4;
@@ -339,6 +346,8 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
 
 
 void process(Prime from, Prime to, FILE * file) {
+	Prime tmp;
+
 	if (!silent) {
 		PrimeString fromString;
 		prime_to_str(fromString, from);
@@ -346,21 +355,24 @@ void process(Prime from, Prime to, FILE * file) {
 		prime_to_str(toString, to);
 		stdLog("Running process for %s (inc) to %s (ex)", fromString, toString);
 	}
-	Prime askFrom = from; // This is what were were asked to calculate from
+	Prime askFrom;  // This is what were were asked to calculate from
+	prime_cp(askFrom, from);
 	if (prime_lt(from, prime_2)) {
 		// Process ignores even primes
 		// Process doesnt know 1 isnt a prime, so skip it!
 		prime_cp(from, prime_2);
-		prime_cp(askFrom, prime_2);
+		prime_cp(askFrom, prime_2); // yup if we're asked to start from 1 or less
+		                            // ignore the stupid user and calculate from 2
 	}
 	else {
 		// Process expects to be aligned to a even number.
-		// process ignores even numbers so adding an extra even
+		// process ignores even numbers so adding an extra even to the start of the range
 		// number won't cause process to find an extra prime
 		if (prime_is_odd(from)) prime_sub_prime(from, from, prime_1);
 	}
 	
-	size_t range = (to - from + 15) / 16;
+	prime_sub_prime(tmp, to, from);
+	size_t range = (prime_get_num(tmp) + 15) / 16;
 	if (verbose) stdLog("Bitmap will contain %zd bytes", range);
 
 	unsigned char * bitmap = mallocSafe(range);
@@ -378,7 +390,6 @@ void process(Prime from, Prime to, FILE * file) {
 				stdLog("Applying primes %02.2f%% (%zd of %zd [%s])", 
 					100 * ((double)i) / ((double)primeCount),i+1, primeCount, primeValueString);
 			#ifndef VERBOSE_DEBUG
-
 			}
 			#endif
 		}

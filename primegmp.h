@@ -8,10 +8,12 @@
 #endif // PRIME_BYTE_COUNT
 
 #define PRIME_SIZE ( PRIME_BYTE_COUNT / sizeof(mp_limb_t) )
-#define PRIME_STRING_SIZE (int)( ( ( PRIME_BYTE_COUNT * 8 * 3.01 ) / 10 ) + 1 )
+#define PRIME_STRING_SIZE (int)( ( ( PRIME_BYTE_COUNT * 8 * 3 ) / 10 ) + 1 )
+
 
 // gmp
 typedef mp_limb_t Prime[PRIME_SIZE];
+typedef char PrimeString[PRIME_STRING_SIZE];
 
 char * prime_to_str(char * s, Prime prime);
 void str_to_prime(Prime prime, char * s);
@@ -27,9 +29,12 @@ void prime_left_shift(Prime target, Prime in, unsigned int count);
 void prime_right_shift(Prime target, Prime in, unsigned int count);
 
 void prime_mul_prime(Prime target, Prime in1, Prime in2);
+void prime_mul_num(Prime target, Prime in1, mp_limb_t in2);
 //void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2);
 void prime_div_prime(Prime div, Prime in1, Prime in2);
+void prime_div_num(Prime div, Prime in1, mp_limb_t in2);
 void prime_mod_prime(Prime mod, Prime in1, Prime in2);
+void prime_mod_num(Prime mod, Prime in1, mp_limb_t in2);
 
 void prime_sqr(Prime target, Prime in);
 void prime_sqrt(Prime target, Prime in); 

@@ -146,14 +146,18 @@ void initializeSelf() {
 	primes = mallocSafe(primesAllocated * sizeof(Prime));
 	Prime maxRequired;
 	prime_sqrt(maxRequired, endValue);
-	size_t range = (maxRequired + 15) / 16;
+	Prime pRange;
+	prime_add_num(pRange, maxRequired, 15);
+	prime_div_num(pRange, pRange, 16);
+	size_t range = prime_get_num(prange);
 	unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
 	memset(bitmap, 0xFF, range);
 
-	Prime value = 3ll;
+	Prime value;
+	prime_set_num(value, 3);
 	primeCount = 0;
 
-	while (value <= maxRequired) {
+	while (prime_lt(value,maxRequired)) {
 
 		if (bitmap[value >> 4] & checkMask[value & 0x0F]) { // if value prime
 			applyPrime(value, 0, bitmap, range);

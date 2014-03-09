@@ -25,7 +25,7 @@ void prime_to_str(char * target, Prime value);
 #define prime_add_num(target, in1, in2) ( target = in1 + in2 )
 #define prime_add_prime(target, in1, in2) ( target = in1 + in2 )
 #define prime_sub_num(target, in1, in2) ( target = in1 - in2 )
-#define prime_sub_prime(target, in1, in2) ( target = in1 + in2 )
+#define prime_sub_prime(target, in1, in2) ( target = in1 - in2 )
 
 
 #define prime_mul_prime(target, value1, value2) target = value1 * value2

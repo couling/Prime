@@ -100,10 +100,10 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 	if (prime_lt(value, offset)) {
 		// value = prime - ((offset - 1) % prime) - 1;
 		prime_sub_num(value, offset, 1);
-		prime_mod(value, value, prime);
+		prime_mod_prime(value, value, prime);
 		prime_sub_prime(value, prime, value);
-		prime_sum_num(value, value, 1);
-		if (!prime_is_odd(value)) prime_add_prime(value, prime);
+		prime_sub_num(value, value, 1);
+		if (!prime_is_odd(value)) prime_add_prime(value, value, prime);
 	}
 	else  {
 		// value = (prime ^ 2) - offset;
@@ -378,15 +378,15 @@ void process(Prime from, Prime to, FILE * file) {
 	if (prime_lt(from, prime_2)) {
 		// Process ignores even primes
 		// Process doesnt know 1 isnt a prime, so skip it!
-		prime_cp(from, prime_2);
-		prime_cp(askFrom, prime_2); // yup if we're asked to start from 1 or less
+		prime_set_num(from, 2);
+		prime_set_num(askFrom, 2); // yup if we're asked to start from 1 or less
 		                            // ignore the stupid user and calculate from 2
 	}
 	else {
 		// Process expects to be aligned to a even number.
 		// process ignores even numbers so adding an extra even to the start of the range
 		// number won't cause process to find an extra prime
-		if (prime_is_odd(from)) prime_sub_prime(from, from, prime_1);
+		if (prime_is_odd(from)) prime_sub_num(from, from, 1);
 	}
 	
 	prime_sub_prime(tmp, to, from);
@@ -447,7 +447,7 @@ void * processAllChunks(void * threadPt) {
 	Prime from, to;
 	prime_cp(from, startValue);
 	//Prime to = startValue - (startValue % chunkSize) + chunkSize;
-	prime_mod(to, startValue, chunkSize);
+	prime_mod_prime(to, startValue, chunkSize);
 	prime_sub_prime(to, startValue, to);
 	prime_add_prime(to, to, chunkSize);
 	int chunkNum = 0;
@@ -546,13 +546,13 @@ int main(int argC, char ** argV) {
 	Prime scale;
 	str_to_prime(scale, startValueScale);
 	str_to_prime(startValue, startValueString);
-	prime_mul(startValue, startValue, scale);
+	prime_mul_prime(startValue, startValue, scale);
 	str_to_prime(scale, endValueScale);
 	str_to_prime(endValue, endValueString);
-	prime_mul(endValue, endValue, scale);
+	prime_mul_prime(endValue, endValue, scale);
 	str_to_prime(scale, chunkSizeScale);
 	str_to_prime(chunkSize, chunkSizeString);
-	prime_mul(chunkSize, chunkSize, scale);
+	prime_mul_prime(chunkSize, chunkSize, scale);
 
 	// Set the output mode
 	switch (fileType) {

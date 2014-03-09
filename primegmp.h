@@ -26,10 +26,10 @@ void prime_sub_prime(Prime target, Prime in1, Prime in2);
 void prime_left_shift(Prime target, Prime in, unsigned int count);
 void prime_right_shift(Prime target, Prime in, unsigned int count);
 
-void prime_mul(Prime target, Prime in1, Prime in2);
+void prime_mul_prime(Prime target, Prime in1, Prime in2);
 //void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2);
-void prime_div(Prime div, Prime in1, Prime in2);
-void prime_mod(Prime mod, Prime in1, Prime in2);
+void prime_div_prime(Prime div, Prime in1, Prime in2);
+void prime_mod_prime(Prime mod, Prime in1, Prime in2);
 
 void prime_sqr(Prime target, Prime in);
 void prime_sqrt(Prime target, Prime in); 

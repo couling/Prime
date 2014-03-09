@@ -106,14 +106,14 @@ void prime_right_shift(Prime target, Prime in, unsigned int count) {
 
 
 
-void prime_mul(Prime target, Prime in1, Prime in2) {
+void prime_mul_prime(Prime target, Prime in1, Prime in2) {
     mp_limb_t result[PRIME_SIZE * 2];
     mpn_mul_n(result, in1, in2, PRIME_SIZE);
     mpn_copyd(target, result, PRIME_SIZE);
 }
 
 
-
+/*
 void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2) {
     Prime ldiv;
     Prime lmod;
@@ -123,10 +123,10 @@ void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2) {
     mpn_copyd(div,ldiv,PRIME_SIZE);
     mpn_copyd(mod,lmod,PRIME_SIZE);
 }
+*/
 
 
-
-void prime_div(Prime div, Prime in1, Prime in2) {
+void prime_div_prime(Prime div, Prime in1, Prime in2) {
     Prime ldiv;
     Prime lmod;
     mp_size_t in2Size = PRIME_SIZE;
@@ -137,7 +137,7 @@ void prime_div(Prime div, Prime in1, Prime in2) {
 
 
 
-void prime_mod(Prime mod, Prime in1, Prime in2) {
+void prime_mod_prime(Prime mod, Prime in1, Prime in2) {
     Prime ldiv;
     Prime lmod;
     mp_size_t in2Size = PRIME_SIZE;

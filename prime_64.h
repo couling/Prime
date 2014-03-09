@@ -16,6 +16,7 @@ typedef char PrimeString[PRIME_STRING_SIZE];
 
 void printValue(FILE * file, Prime value);
 #define prime_set_num(target, value) target = value
+#define prime_get_num(value) ( value )
 #define str_to_prime(target, value) target = _str_to_prime(value)
 Prime _str_to_prime(char * s);
 void prime_to_str(char * target, Prime value);

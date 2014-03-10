@@ -74,7 +74,6 @@ void exitError(int num, int errorNumber, char * str, ...) {
 
 
 
-
 char * timeNow() {
 	time_t rawtime;
 	struct tm * timeinfo;
@@ -101,6 +100,52 @@ void * reallocSafe(void * existing, size_t bytes) {
 	return result;
 }
 
+
+
+void printUsage() {
+	fprintf(stderr,
+            "Start / end values:"
+            "  -o --start               start value in units\n"
+			"  -O --end                 end value in units\n"
+			"  -k --start-thousand      start value in thousands\n"
+			"  -K --end-thousand        end value in thousands\n"
+			"  -m --start-million       start value in millions\n"
+			"  -M -end-million          end value in millions\n"
+			"  -g --start-billion\n"
+			"  -G --end-billion\n"
+			"  -t --start-trillion\n"
+			"  -T --end-trillion\n"
+			"\n"
+			"Output options:\n"
+			"  -a --text-out            Write primes in text (ASKII new line delimited)\n"
+			"  -b --binary-out          Write files in system dependent binary format\n"
+			"                           Use -bf for generating an initialization file\n"
+			"  -B --compressed-out      Write compressed binary output\n"
+			"  -d --dir                 Specify the directory to write to\n"
+			"  -f --single-file         Write to a new file instead of stdout\n"
+			"  -F --multi-file          Write to one file per chunk instead of stdout\n"
+			"     --file-prefix         Specify file name before first number\n"
+			"     --file-infix          Specify file name between first and last number\n"
+			"     --file-suffix         Specify file name after last number\n"
+			"\n"
+			"General processing options:"
+			"  -c --chunk-million       size of chunks to process in millions\n"
+			"                           (affects file size when using -F)\n"
+			"  -C --chunk-billion       size of chunks to process in billions\n"
+			"                           (affects file size when using -F)\n"
+			"  -x --thread-count        Specify the number of threads to use (default 1)\n"
+			"\n"
+			"Debug & logging options:\n"
+			"  -s -q --silent --quet     Disable progess output\n"
+			"  -v --verbose              Verbose output, meaningless with -s or -q\n"
+			"\n"
+			"Other:\n"
+			"-h --help                    Show this help");
+	exit(0);
+}
+
+
+
 void parseArgs(int argC, char ** argV) {
 	pthread_key_create(&threadNumKey, NULL);
 
@@ -126,13 +171,14 @@ void parseArgs(int argC, char ** argV) {
                 {"silent", no_argument, 0, 's'},
 				{"quiet", no_argument, 0 , 'q'},
                 {"verbose", no_argument, 0, 'v'},
-                {"multi-file", no_argument, 0, 'f'},
-				{"single-file", no_argument, 0, 'F'},
+                {"single-file", no_argument, 0, 'f'},
+				{"multi-file", no_argument, 0, 'F'},
 				{"text-out", no_argument, 0, 'a'},
 				{"binary-out", no_argument, 0, 'b'},
+				{"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
-    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:x:abdqsvfF";
+    static char * shortOptions ="O:o:K:k:M:m:G:g:T:t:C:c:p:x:abdqsvfFh";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -160,10 +206,11 @@ void parseArgs(int argC, char ** argV) {
             case 'q':
 			case 's': silent = 1; verbose = 0; break;
             case 'v': verbose = !silent; break;
-            case 'f': useStdout = 0; singleFile = 0; break;
-			case 'F': useStdout = 0; singleFile = 1; break;
+            case 'f': useStdout = 0; singleFile = 1; break;
+			case 'F': useStdout = 0; singleFile = 0; break;
 			case 'a': fileType = FILE_TYPE_TEXT; break;
 			case 'b': fileType = FILE_TYPE_SYSTEM_BINARY; break;
+			case 'h': printUsage(); break;
             case '?':
                 if (optopt) {
                     exitError(1,0,"invalid option -%c", optopt);

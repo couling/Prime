@@ -27,6 +27,7 @@ extern int fileType;
 
 #define FILE_TYPE_TEXT 't'
 #define FILE_TYPE_SYSTEM_BINARY 'b'
+#define FILE_TYPE_COMPRESSED_BINARY 'c'
 
 extern int silent;
 extern int verbose;

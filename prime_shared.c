@@ -102,12 +102,12 @@ void * reallocSafe(void * existing, size_t bytes) {
 
 
 
-void printUsage() {
+void printUsage(int argC, char ** argV) {
 	fprintf(stderr,
             "Usage: \n"
             "  %s <options> [initialisation file]\n"
             "\n"
-            "Start / end options:"
+            "Start / end options:\n"
             "  -o --start               start value in units\n"
 			"  -O --end                 end value in units\n"
 			"  -k --start-thousand      start value in thousands\n"
@@ -139,11 +139,13 @@ void printUsage() {
 			"  -x --thread-count        Specify the number of threads to use (default 1)\n"
 			"\n"
 			"Debug & logging options:\n"
-			"  -s -q --silent --quet     Disable progess output\n"
+			"  -s --silent               Disable progess output\n"
+			"  -q --quiet                Same as -s\n"
 			"  -v --verbose              Verbose output, meaningless with -s or -q\n"
 			"\n"
 			"Other:\n"
-			"-h --help                    Show this help");
+			"  -h --help                 Show this help\n",
+			argV[0]);
 	exit(0);
 }
 
@@ -213,7 +215,7 @@ void parseArgs(int argC, char ** argV) {
 			case 'F': useStdout = 0; singleFile = 0; break;
 			case 'a': fileType = FILE_TYPE_TEXT; break;
 			case 'b': fileType = FILE_TYPE_SYSTEM_BINARY; break;
-			case 'h': printUsage(); break;
+			case 'h': printUsage(argC, argV); break;
             case '?':
                 if (optopt) {
                     exitError(1,0,"invalid option -%c", optopt);

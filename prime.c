@@ -149,7 +149,7 @@ void initializeSelf() {
 	Prime pRange;
 	prime_add_num(pRange, maxRequired, 15);
 	prime_div_num(pRange, pRange, 16);
-	size_t range = prime_get_num(prange);
+	size_t range = prime_get_num(pRange);
 	unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
 	memset(bitmap, 0xFF, range);
 

@@ -33,14 +33,6 @@ for each time a prime is touched it uses addition and not division.
 #include <sys/wait.h>
 #include <unistd.h>
 
-#ifdef PRIME_64
-# include "prime_64.h"
-#endif
-
-#ifdef PRIME_GMP
-# include "primegmp.h"
-#endif
-
 #include "prime_shared.h"
 
 //#define VERBOSE_DEBUG
@@ -423,23 +415,6 @@ void process(Prime from, Prime to, FILE * file) {
 	if (verbose) stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", from, to);
 
 	free(bitmap);
-}
-
-
-
-FILE * openFileForPrime(Prime from, Prime to) {
-	char fileName[FILENAME_MAX];
-	PrimeString fromString;
-    prime_to_str(fromString, from);
-    PrimeString toString;
-    prime_to_str(toString, to);
-    snprintf(fileName, FILENAME_MAX,"%s/%s%19s%s%19s%s",
-        fileDir,filePrefix,fromString,fileInfix,toString,fileSuffix);	
-	for (int i=0; fileName[i]; ++i) if (fileName[i] == ' ') fileName[i] = '0';
-	if (!silent) stdLog("Starting new prime file: %s", fileName);
-	FILE * file = fopen(fileName, "wx");
-	if (!file) exitError(2, errno, "Could not create new file: %s", fileName);
-	
 }
 
 

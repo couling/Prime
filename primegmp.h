@@ -3,17 +3,9 @@
 
 #include <gmp.h>
 
-#ifndef PRIME_BYTE_COUNT
-#define PRIME_BYTE_COUNT 16
-#endif // PRIME_BYTE_COUNT
-
-#define PRIME_SIZE ( PRIME_BYTE_COUNT / sizeof(mp_limb_t) )
-#define PRIME_STRING_SIZE (int)( ( ( PRIME_BYTE_COUNT * 8 * 3 ) / 10 ) + 1 )
-
-
 // gmp
-typedef mp_limb_t Prime[PRIME_SIZE];
-typedef char PrimeString[PRIME_STRING_SIZE];
+#define PRIME_LIMB_COUNT ( PRIME_BYTE_COUNT / sizeof(mp_limb_t) )
+typedef mp_limb_t Prime[PRIME_LIMB_COUNT];
 
 char * prime_to_str(char * s, Prime prime);
 void str_to_prime(Prime prime, char * s);
@@ -39,17 +31,17 @@ void prime_mod_num(Prime mod, Prime in1, mp_limb_t in2);
 void prime_sqr(Prime target, Prime in);
 void prime_sqrt(Prime target, Prime in); 
 
-#define prime_gt(v1,v2) ( mpn_cmp(v1,v2,PRIME_SIZE) >  0 )
-#define prime_ge(v1,v2) ( mpn_cmp(v1,v2,PRIME_SIZE) >= 0 )
-#define prime_lt(v1,v2) ( mpn_cmp(v1,v2,PRIME_SIZE) <  0 )
-#define prime_le(v1,v2) ( mpn_cmp(v1,v2,PRIME_SIZE) <= 0 )
+#define prime_gt(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) >  0 )
+#define prime_ge(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) >= 0 )
+#define prime_lt(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) <  0 )
+#define prime_le(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) <= 0 )
 
-#define prime_gt_zero(v1) ( v1 [PRIME_SIZE-1] >  0 )
-#define prime_lt_zero(v1) ( v1 [PRIME_SIZE-1] <  0 )
+#define prime_gt_zero(v1) ( v1 [PRIME_LIMB_COUNT-1] >  0 )
+#define prime_lt_zero(v1) ( v1 [PRIME_LIMB_COUNT-1] <  0 )
 
 #define prime_is_odd(v1)  ( v1 [0] & 1 )
 
-#define prime_cp(target,result) mpn_copyd(target,result,PRIME_SIZE)
+#define prime_cp(target,result) mpn_copyd(target,result,PRIME_LIMB_COUNT)
 
 
 void prime_init();

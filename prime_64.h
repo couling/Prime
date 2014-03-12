@@ -1,18 +1,7 @@
 #ifndef prime_long_long_h
 #define prime_long_long_h
 
-#include <math.h>
-
-#ifdef PRIME_BYTE_COUNT
-#undef PRIME_BYTE_COUNT
-#endif // PRIME_BYTE_COUNT
-
-#define PRIME_BYTE_COUNT sizeof(long long)
-#define PRIME_STRING_SIZE ( (int)( ( ( PRIME_BYTE_COUNT * 8 * 3 ) / 10 ) + 3 ) )
-
-
 typedef long long Prime;
-typedef char PrimeString[PRIME_STRING_SIZE];
 
 void printValue(FILE * file, Prime value);
 #define prime_set_num(target, value) target = value

@@ -4,6 +4,40 @@
 #include <stdlib.h> 
 #include <stdarg.h>
 #include <pthread.h>
+#include <limits.h>
+
+// Set up the architecture
+
+#ifndef PRIME_SIZE
+	#define PRIME_SIZE 64
+#endif
+
+#if PRIME_SIZE == 32
+	#define PRIME_STRING_SIZE 11
+#elif PRIME_SIZE == 64
+	#define PRIME_STRING_SIZE 21
+#elif PRIME_SIZE == 96
+	#define PRIME_STRING_SIZE 30
+#elif PRIME_SIZE == 128
+	#define PRIME_STRING_SIZE 40
+#else
+    #error PRIME_SIZE is invalid
+#endif
+
+
+#ifndef PRIME_ARCH
+	#define PRIME_ARCH INT
+#endif
+
+
+#if PRIME_ARCH = INT
+	#include "prime_64.h"
+#elif PRIME_ARCH = GMP
+	#include "primegmp.h"
+#endif
+
+
+typedef char PrimeString[PRIME_STRING_SIZE];
 
 // Config parameters
 extern char * startValueString;
@@ -21,6 +55,7 @@ extern char * fileDir;
 extern char * filePrefix;
 extern char * fileSuffix;
 extern char * fileInfix;
+extern char * fileName;
 extern int singleFile;
 extern int useStdout;
 extern int fileType;
@@ -36,8 +71,6 @@ extern int verbose;
 // For for file based initialisation
 extern char * * files;
 extern int fileCount;
-
-char * timeNow();
 
 void stdLog(char * str, ...);
 void exitError(int num, int errorNumber, char * str, ...);

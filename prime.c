@@ -17,9 +17,7 @@ for each time a prime is touched it uses addition and not division.
 
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
 #include <errno.h>
 
 #include <pthread.h>
@@ -28,7 +26,7 @@ for each time a prime is touched it uses addition and not division.
 // For memory mapping a file
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
+
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <unistd.h>

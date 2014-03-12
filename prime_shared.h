@@ -5,6 +5,8 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <limits.h>
+#include <stdio.h>
+#include <string.h>
 
 // Set up the architecture
 
@@ -77,6 +79,8 @@ void exitError(int num, int errorNumber, char * str, ...);
 
 void * mallocSafe(size_t bytes);
 void * reallocSafe(void * existing, size_t bytes);
+
+FILE * openFileForPrime(Prime from, Prime to);
 
 void parseArgs(int argC, char ** argV);
 

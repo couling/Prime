@@ -22,6 +22,7 @@ for each time a prime is touched it uses addition and not division.
 
 #include <pthread.h>
 #include <semaphore.h>
+#include <math.h>
 
 // For memory mapping a file
 #include <fcntl.h>
@@ -29,6 +30,7 @@ for each time a prime is touched it uses addition and not division.
 
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "prime_shared.h"

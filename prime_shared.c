@@ -89,70 +89,95 @@ void * reallocSafe(void * existing, size_t bytes) {
 }
 
 static void openFilesnprintf(char * base, char ** target, const char * str, ...) {
-	int allowableSize = FILE_SIZE - (base - *target);
+	int allowableSize = FILENAME_MAX - (base - *target);
 	va_list ap;
 	va_start(ap, str);
-	int bytesWritten = vsnprintf(*target, str, ap);
+	int bytesWritten = vsnprintf(*target, allowableSize, str, ap);
 	va_end(ap);
-	if (bytesWritten < 0 || bytesWritten == allowableSize) *target = base + FILE_SIZE;
+	if (bytesWritten < 0 || bytesWritten == allowableSize) *target = base + FILENAME_MAX;
 	else *target += bytesWritten - 1;
 }
 
 FILE * openFileForPrime(Prime from, Prime to) {
+	// Evaluate the file name
 	char formattedFileName[FILENAME_MAX];
 	char * writePosition = formattedFileName;
-	for (char * readPosition = fileName;
-			*readPosition && writePosition < formattedFileName + FILE_NAME_MAX;
-			readPosition++, writePosition++) {
+	char * readPosition = fileName;
+	int multiplyer = 9;
+	while(*readPosition != 0 && writePosition < formattedFileName + FILENAME_MAX) {
 		switch (*readPosition) {
-		case '/': {
-			*writePosition = '\0';
-			mkdir(formattedFileName, S_IRWXU);
-			*writePosition = '/';
-			break;
-		}
-		case '%': {
-			readPosition++;
-			switch (*readPosition) {
-			case '%': {
-				*writePosition = '%';
+			case '/': 
+				*writePosition = '\0';
+				if (!mkdir(formattedFileName, S_IRWXU)) {
+					stdLog("Created directory for output: %s", formattedFileName);
+				}
+				*writePosition = '/';
 				break;
-			}
-			case 'o': {
-				PrimeString fromString;
-				prime_to_str(fromString, from);
-				openFilesnprintf(formattedFileName, &writePosition, "%s",
-						fromString);
-			}
-			case 'O': {
-				PrimeString toString;
-				prime_to_str(toString, to);
-				openFilesnprintf(formattedFileName, &writePosition, "%s",
-						fromString);
-			}
-			default: {
-				exitError(1, 0, "Un recognised character %c", *readPosition);
-			}
-			}
-			break;
+			
+			case '%':
+				readPosition++;
+				switch (*readPosition) {
+					case '%':
+						*writePosition = '%';
+						break;
+			
+					case '0':
+					case '1':
+					case '2':
+					case '3':
+					case '4':
+					case '5':
+					case '6':
+					case '7':
+					case '8':
+					case '9':
+						multiplyer = 0;
+						do multiplyer = (multiplyer * 10) + (*(readPosition++) - '0' );
+						while (*readPosition >= '0' && *readPosition <= '9');
+						stdLog("multiplyer is %d", multiplyer);
+					case 'o':
+					case 'O': {
+						PrimeString s;
+						prime_to_str(s, (*readPosition == 'o' ? from : to));
+						multiplyer -= strlen(s);
+						if (multiplyer > 0) {
+							
+							openFilesnprintf(formattedFileName, &writePosition, "%.*s%s", multiplyer,
+							"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+							s);
+							
+						}
+						else {
+							openFilesnprintf(formattedFileName, &writePosition, "%s", s);
+						}
+						break;
+					}
+
+					default:
+						exitError(1, 0, "Unrecognized character %c", *readPosition);
+						break;
+				}
+				break;
+
+			default:
+				*writePosition = *readPosition;
+				break;
 		}
-		default: {
-			*writePosition = *readPosition;
-			break;
-		}
-		}
+
+		readPosition = readPosition + 1;
+		writePosition = writePosition + 1;
 	}
-	if (writePosition < formattedFileName + FILE_NAME_MAX) {
+	if (writePosition < formattedFileName + FILENAME_MAX) {
 		*writePosition = '\0';
 	} else {
 		exitError(1, 0, "Filename format too long: %s", fileName);
 	}
 
 	if (!silent)
-		stdLog("Starting new prime file: %s", fileName);
+		stdLog("Starting new prime file: %s", formattedFileName);
 	FILE * file = fopen(formattedFileName, "wx");
 	if (!file)
-		exitError(2, errno, "Could not create new file: %s", fileName);
+		exitError(2, errno, "Could not create new file: %s", formattedFileName);
 
 }
 
@@ -199,6 +224,23 @@ void printUsage(int argC, char ** argV) {
 	exit(0);
 }
 
+void testFileName() {
+	Prime startValue, endValue, scale;
+	
+	str_to_prime(scale, startValueScale);
+	str_to_prime(startValue, startValueString);
+	prime_mul_prime(startValue,scale,startValue);
+	
+	str_to_prime(scale, endValueScale);
+	str_to_prime(endValue, endValueString);
+	prime_mul_prime(endValue,scale,endValue);
+	
+	FILE * file = openFileForPrime(startValue,endValue);
+	fclose(file);
+	
+	exit(0);
+}
+
 void parseArgs(int argC, char ** argV) {
 	pthread_key_create(&threadNumKey, NULL);
 
@@ -224,10 +266,12 @@ void parseArgs(int argC, char ** argV) {
 			{ "multi-file", no_argument, 0, 'F' },
 			{ "text-out", no_argument, 0, 'a' },
 			{ "binary-out", no_argument, 0, 'b' },
+			{ "compressed-binary-out", no_argument, 0, 'y' },
 			{ "help", no_argument, 0, 'h' },
+			{ "test-file-name", no_argument, 0, 'h' },
 			{ 0, 0, 0, 0 }
 	};
-	static char * shortOptions = "O:o:K:k:M:m:G:g:T:t:C:c:p:x:abdqsvfFh";
+	static char * shortOptions = "O:o:K:k:M:m:G:g:T:t:C:c:x:sqvfFabBn:hz";
 
 	int givenOption;
 	// do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -236,83 +280,32 @@ void parseArgs(int argC, char ** argV) {
 			NULL)) != -1) {
 		int threadingNumber = 0;
 		switch (givenOption) {
-		case 'o':
-			startValueString = optarg;
-			startValueScale = "1";
-			break;
-		case 'O':
-			endValueString = optarg;
-			endValueScale = "1";
-			break;
-		case 'k':
-			startValueString = optarg;
-			startValueScale = "1000";
-			break;
-		case 'K':
-			endValueString = optarg;
-			endValueScale = "1000";
-			break;
-		case 'm':
-			startValueString = optarg;
-			startValueScale = "1000000";
-			break;
-		case 'M':
-			endValueString = optarg;
-			endValueScale = "1000000";
-			break;
-		case 'g':
-			startValueString = optarg;
-			startValueScale = "1000000000";
-			break;
-		case 'G':
-			endValueString = optarg;
-			endValueScale = "1000000000";
-			break;
-		case 't':
-			startValueString = optarg;
-			startValueScale = "1000000000000";
-			break;
-		case 'T':
-			endValueString = optarg;
-			endValueScale = "1000000000000";
-			break;
-		case 'c':
-			chunkSizeString = optarg;
-			chunkSizeScale = "1000000";
-			break;
-		case 'C':
-			chunkSizeString = optarg;
-			chunkSizeScale = "1000000000";
-			break;
-		case 'x':
-			threadingNumber = 'x';
-			break;
+		case 'o': startValueString = optarg;  startValueScale = "1";                break;
+		case 'O': endValueString   = optarg;  endValueScale   = "1";                break;
+		case 'k': startValueString = optarg;  startValueScale = "1000";             break;
+		case 'K': endValueString   = optarg;  endValueScale   = "1000";             break;
+		case 'm': startValueString = optarg;  startValueScale = "1000000";          break;
+		case 'M': endValueString   = optarg;  endValueScale   = "1000000";          break;
+		case 'g': startValueString = optarg;  startValueScale = "1000000000";       break;
+		case 'G': endValueString   = optarg;  endValueScale   = "1000000000";       break;
+		case 't': startValueString = optarg;  startValueScale = "1000000000000";    break;
+		case 'T': endValueString   = optarg;  endValueScale   = "1000000000000";    break;
+		case 'c': chunkSizeString  = optarg;  chunkSizeScale  = "1000000";          break;
+		case 'C': chunkSizeString  = optarg;  chunkSizeScale  = "1000000000";       break;
+		case 'x': threadingNumber = 'x';                                            break;
 		case 'q':
-		case 's':
-			silent = 1;
-			verbose = 0;
-			break;
-		case 'v':
-			verbose = !silent;
-			break;
-		case 'f':
-			useStdout = 0;
-			singleFile = 1;
-			break;
-		case 'F':
-			useStdout = 0;
-			singleFile = 0;
-			break;
-		case 'a':
-			fileType = FILE_TYPE_TEXT;
-			break;
-		case 'b':
-			fileType = FILE_TYPE_SYSTEM_BINARY;
-			break;
-		case 'h':
-			printUsage(argC, argV);
-			break;
+		case 's': silent = 1;                 verbose = 0;                          break;
+		case 'v': verbose = !silent;                                                break;
+		case 'f': useStdout = 0;              singleFile = 1;                       break;
+		case 'F': useStdout = 0;              singleFile = 0;                       break;
+		case 'a': fileType = FILE_TYPE_TEXT;                                        break;
+		case 'b': fileType = FILE_TYPE_SYSTEM_BINARY;                               break;
+		case 'B': fileType = FILE_TYPE_COMPRESSED_BINARY;                           break;
+		case 'n': fileName = optarg;                                                break;
+		case 'h': printUsage(argC, argV);                                           break;
+		case 'z': testFileName();                                                   break;
 		case '?':
+		default:
 			if (optopt) {
 				exitError(1, 0, "invalid option -%c", optopt);
 			} else {
@@ -343,12 +336,6 @@ void parseArgs(int argC, char ** argV) {
 		singleThread = 1;
 
 	int errorFlag = 0;
-
-	if (strchr(filePrefix, '/') || strchr(fileInfix, '/')
-			|| strchr(fileSuffix, '/')) {
-		exitError(1, 0,
-				"'/' found in file name, directories MUST be specified using --dir");
-	}
 
 	if (threadCount < 1) {
 		exitError(1, 0, "invalid thread-count (%d). Must be 1 or more.",

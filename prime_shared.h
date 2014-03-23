@@ -32,9 +32,9 @@
 #endif
 
 
-#if PRIME_ARCH = INT
+#if PRIME_ARCH == INT
 	#include "prime_64.h"
-#elif PRIME_ARCH = GMP
+#elif PRIME_ARCH == GMP
 	#include "primegmp.h"
 #endif
 
@@ -53,10 +53,6 @@ extern int threadCount;
 extern int singleThread;
 extern pthread_key_t threadNumKey;
 
-extern char * fileDir;
-extern char * filePrefix;
-extern char * fileSuffix;
-extern char * fileInfix;
 extern char * fileName;
 extern int singleFile;
 extern int useStdout;

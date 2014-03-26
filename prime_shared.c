@@ -25,7 +25,7 @@ int threadCount = 1;
 int singleThread = 0;
 pthread_key_t threadNumKey;
 
-char * fileName = "prime.%o-%O.txt";
+char * fileName = "prime.%12o-%12O.txt";
 int useStdout = 1;
 int singleFile = 1;
 int fileType = FILE_TYPE_TEXT;
@@ -98,12 +98,17 @@ static void openFilesnprintf(char * base, char ** target, const char * str, ...)
 	else *target += bytesWritten - 1;
 }
 
+#define DEFAULT_MULTIPLIER   1
+#define DEFAULT_LEFT_PADDING 0
+
 FILE * openFileForPrime(Prime from, Prime to) {
 	// Evaluate the file name
 	char formattedFileName[FILENAME_MAX];
 	char * writePosition = formattedFileName;
 	char * readPosition = fileName;
-	int multiplyer = 9;
+	Prime multiplyer;
+	prime_set_num(multiplyer, DEFAULT_MULTIPLIER);
+	int leftPadding = DEFAULT_LEFT_PADDING;
 	while(*readPosition != 0 && writePosition < formattedFileName + FILENAME_MAX) {
 		switch (*readPosition) {
 			case '/': 
@@ -131,18 +136,37 @@ FILE * openFileForPrime(Prime from, Prime to) {
 					case '7':
 					case '8':
 					case '9':
-						multiplyer = 0;
-						do multiplyer = (multiplyer * 10) + (*(readPosition++) - '0' );
+						leftPadding = 0;
+						do leftPadding = (leftPadding * 10) + (*(readPosition++) - '0' );
 						while (*readPosition >= '0' && *readPosition <= '9');
-						stdLog("multiplyer is %d", multiplyer);
+					case 'x':
+					case 'X':
+						if (*readPosition == 'x' || *readPosition == 'X') {
+							readPosition++;
+							if (*readPosition < '0' || *readPosition > '9') {
+								exitError(1,0,"Invalid filename, expected 0 to 9 found: %c", *readPosition);
+							}
+							int multiplyerInt = 0;
+							do multiplyer = (multiplyerInt * 10) + (*(readPosition++) - '0' );
+							while (*readPosition >= '0' && *readPosition <= '9');
+							prime_set_num(multiplyer, 1);
+							for (int i=0; i < multiplyerInt; i++) {
+								prime_mul_num(multiplyer, multiplyer, 10);
+							}
+						}
 					case 'o':
 					case 'O': {
+						if (*readPosition != 'o' && *readPosition != 'O') {
+							exitError(1,0,"Invalid filename, expected o or O found: %c", *readPosition);
+						}
 						PrimeString s;
-						prime_to_str(s, (*readPosition == 'o' ? from : to));
-						multiplyer -= strlen(s);
-						if (multiplyer > 0) {
+						Prime p = *readPosition == 'o' ? from : to;
+						prime_div_prime(p, p, multiplyer);
+						prime_to_str(s, p);
+						leftPadding -= strlen(s);
+						if (leftPadding > 0) {
 							
-							openFilesnprintf(formattedFileName, &writePosition, "%.*s%s", multiplyer,
+							openFilesnprintf(formattedFileName, &writePosition, "%.*s%s", leftPadding,
 							"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 							s);
 							
@@ -150,6 +174,8 @@ FILE * openFileForPrime(Prime from, Prime to) {
 						else {
 							openFilesnprintf(formattedFileName, &writePosition, "%s", s);
 						}
+						prime_set_num(multiplyer, DEFAULT_MULTIPLIER);
+						leftPadding = DEFAULT_LEFT_PADDING;
 						break;
 					}
 
@@ -224,23 +250,6 @@ void printUsage(int argC, char ** argV) {
 	exit(0);
 }
 
-void testFileName() {
-	Prime startValue, endValue, scale;
-	
-	str_to_prime(scale, startValueScale);
-	str_to_prime(startValue, startValueString);
-	prime_mul_prime(startValue,scale,startValue);
-	
-	str_to_prime(scale, endValueScale);
-	str_to_prime(endValue, endValueString);
-	prime_mul_prime(endValue,scale,endValue);
-	
-	FILE * file = openFileForPrime(startValue,endValue);
-	fclose(file);
-	
-	exit(0);
-}
-
 void parseArgs(int argC, char ** argV) {
 	pthread_key_create(&threadNumKey, NULL);
 
@@ -259,7 +268,7 @@ void parseArgs(int argC, char ** argV) {
 			{ "chunk-billion", required_argument, 0, 'C' },
 			{ "file-name", required_argument, 0, 'n' },
 			{ "thread-count", required_argument, 0, 'x' },
-			{"silent", no_argument, 0, 's' },
+			{ "silent", no_argument, 0, 's' },
 			{ "quiet", no_argument, 0, 'q' },
 			{ "verbose", no_argument, 0, 'v' },
 			{ "single-file", no_argument, 0, 'f' },
@@ -268,10 +277,9 @@ void parseArgs(int argC, char ** argV) {
 			{ "binary-out", no_argument, 0, 'b' },
 			{ "compressed-binary-out", no_argument, 0, 'y' },
 			{ "help", no_argument, 0, 'h' },
-			{ "test-file-name", no_argument, 0, 'h' },
 			{ 0, 0, 0, 0 }
 	};
-	static char * shortOptions = "O:o:K:k:M:m:G:g:T:t:C:c:x:sqvfFabBn:hz";
+	static char * shortOptions = "O:o:K:k:M:m:G:g:T:t:C:c:n:x:sqvfFabByh";
 
 	int givenOption;
 	// do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -303,7 +311,6 @@ void parseArgs(int argC, char ** argV) {
 		case 'B': fileType = FILE_TYPE_COMPRESSED_BINARY;                           break;
 		case 'n': fileName = optarg;                                                break;
 		case 'h': printUsage(argC, argV);                                           break;
-		case 'z': testFileName();                                                   break;
 		case '?':
 		default:
 			if (optopt) {

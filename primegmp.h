@@ -4,7 +4,7 @@
 #include <gmp.h>
 
 // gmp
-#define PRIME_LIMB_COUNT ( PRIME_BYTE_COUNT / sizeof(mp_limb_t) )
+#define PRIME_LIMB_COUNT ( PRIME_SIZE / sizeof(mp_limb_t) / 8 )
 typedef mp_limb_t Prime[PRIME_LIMB_COUNT];
 
 char * prime_to_str(char * s, Prime prime);
@@ -35,6 +35,7 @@ void prime_sqrt(Prime target, Prime in);
 #define prime_ge(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) >= 0 )
 #define prime_lt(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) <  0 )
 #define prime_le(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) <= 0 )
+#define prime_eq(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) == 0 )
 
 #define prime_gt_zero(v1) ( v1 [PRIME_LIMB_COUNT-1] >  0 )
 #define prime_lt_zero(v1) ( v1 [PRIME_LIMB_COUNT-1] <  0 )

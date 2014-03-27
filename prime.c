@@ -41,22 +41,8 @@ for each time a prime is touched it uses addition and not division.
 #define APPLY_DEBUG_MASK 0xFFFF
 #define SCAN_DEBUG_MASK 0x3FFFFF
 
-// Config parameters
 
-Prime startValue;
-Prime endValue;
-Prime chunkSize;
-
-struct FileHandle {
-	char * fileName;
-	int handle;
-	struct stat statBuffer;
-} * fileHandles;
-
-size_t primeCount;                 // Number of primes stored
-Prime * primes;                    // The array of primes
-
-
+// For threading
 typedef struct ThreadDescriptor {
 	int threadNum;
 	pthread_t threadHandle;
@@ -64,18 +50,36 @@ typedef struct ThreadDescriptor {
 	sem_t * nextThreadWriteSemaphore;
 } ThreadDescriptor;
 
+
 ThreadDescriptor * threads;
 
-FILE * theSingleFile;
 
-unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
-unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
+// For file based initialisation
+int initFileHandle;
+off_t initFileSize;
 
+
+//  Functions for writing primes
+typedef void (* WritePrimeFunction)(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
 void writePrimeText(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
 void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
+void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
 
-typedef void (* WritePrimeFunction)(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
 WritePrimeFunction writePrime = writePrimeText;
+
+// The single file to write to (if single file is enabled);
+FILE * theSingleFile;
+
+
+// All primes less than or sqrt(endValue)
+// Generating these is what initialisation is for
+size_t primeCount;                 // Number of primes stored
+Prime * primes;                    // The array of primes
+
+
+// Maps used to operate on compressed prime bitmasks
+unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
+unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
 
 void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) {
 	// An optomisatin can be made here by splitting this function into two.
@@ -191,72 +195,87 @@ void finalSelf() {
 
 
 void initializeFromFile() {
-	if (fileCount > 1) {
-			exitError(1,0, "Initialization from multiple files has not yet been implemented");
+	if (!silent) stdLog("Initializing from file (%s)", initFileName);
+
+	// Open the file
+	initFileHandle = open(initFileName, O_RDONLY);
+	if (initFileHandle < 0) exitError(1, errno, "failed to open file %s", initFileName);
+	
+	// Get the file size and check that it makes sense
+	struct stat statBuffer;
+	if ( fstat(initFileHandle, &statBuffer) < 0 ) exitError(1, errno, "failed to stat file %s", initFileName);
+	
+	initFileSize = statBuffer.st_size;
+	if ( initFileSize % sizeof(Prime) ) 
+		exitError(1, 0, "unexpected file length %s (%lld) this should be divisible by %zd", 
+			initFileName, (long long)initFileSize, sizeof(Prime));
+
+	primeCount = initFileSize / sizeof(Prime);
+	if ( primeCount < 2 )
+		exitError(1, 0, "unexpected file length %s (%lld) should be at lease two primes long %zd bytes",
+			initFileName, (long long) initFileSize, sizeof(Prime) * 2);
+
+	// Memory map the full file
+	primes = mmap(0, initFileSize, PROT_READ, MAP_SHARED, initFileHandle, 0);
+	if (primes == MAP_FAILED) exitError(1, errno, "failed to memory map init file %s", initFileName);
+
+	
+	// Perform sanity checks on file.
+	if (verbose) stdLog("File memory mapped (%s) ... checking file", initFileName);
+	
+	// The first prime is always 3 the second always 5
+	// This is used as a sort of file signature and helps ensure we're using the correct format.
+	Prime comp;
+	prime_set_num(comp, 3);
+	if (!prime_eq(primes[0], comp)) {
+		PrimeString s;
+		prime_to_str(s, primes[0]);
+		exitError(1, 0, "primes[0] is not 3 but %s in %s", s, initFileName);
 	}
+	prime_set_num(comp, 5);
+    if (!prime_eq(primes[1], comp)) {
+        PrimeString s;
+        prime_to_str(s, primes[1]);
+        exitError(1, 0, "primes[1] is not 5 but %s in %s", s, initFileName);
+    }
 
-	fileHandles = mallocSafe(sizeof(struct FileHandle) * 1); // there can be only one.
-
-		if (!silent) stdLog("Initializing from file (%s)", files[0]);
-
-	fileHandles[0].fileName = files[0];
-	fileHandles[0].handle = open(files[0], O_RDONLY);
-	if (fileHandles[0].handle < 0) {
-		exitError(1, errno, "failed to open file %s", files[0]);
-	}
-
-	if ( fstat(fileHandles[0].handle, &(fileHandles[0].statBuffer)) < 0 ) {
-		exitError(1, errno, "failed to stat file %s", files[0]);
-	}
-
-	if ( fileHandles[0].statBuffer.st_size % sizeof(Prime) ) {
-		exitError(1, errno, "unexpected file length %s (%lld) this should be divisible by %zd.", 
-			files[0], (Prime)(fileHandles[0].statBuffer.st_size),sizeof(Prime));
-	}
-
-	primes = mmap(0, fileHandles[0].statBuffer.st_size, PROT_READ, MAP_SHARED, fileHandles[0].handle, 0);
-	if (primes == MAP_FAILED) {
-		exitError(1, errno, "failed to memory map file. Is this a regular file %s", files[0]);
-	}
-
-
-	primeCount = fileHandles[0].statBuffer.st_size / sizeof(Prime);
-
-	if (verbose) stdLog("File memory mapped (%s) ... checking file", files[0]);
-
-	if (primes[0] != 3ll) {
-		exitError(1, 0, "primes[0] is not 3 in %s. Is this a prime initialization file?", files[0]);
-	}
-
+	// Primes are listed in ascending numerical order and are all odd.
 	for (size_t i = 1; i < primeCount; ++i) {
-		if (primes[i] <= primes[i-1]) {
-			exitError(1, 0, "primes[%zd] (%lld) is out of sequence with primes[%zd] (%lld) in %s. Is this a prime initialization file?", 
-				i-1, primes[i-1], i, primes[i], files[0]);
+		if (prime_lt(primes[i], primes[i-1])) {
+			PrimeString p1, p2;
+			prime_to_str(p1, primes[i]);
+			prime_to_str(p2, primes[i-1]);
+			exitError(1, 0, "primes[%zd] (%s) is out of sequence with primes[%zd] (%s) in %s", 
+				i, p1, i-1, p2, initFileName);
 		}
-		if (!(primes[i] & 1ll)) {
-			exitError(1, 0, "primes[%zd] (%lld) is even. Is this a prime initialization file?", i, primes[i], files[0]);
+		if (!(prime_is_odd(primes[i]))) {
+			PrimeString s;
+			prime_to_str(s, primes[i]);
+			exitError(1, 0, "primes[%zd] (%s) is even in %s", i, s, initFileName);
 		}
 	}
 
-	if (primes[primeCount-1] * primes[primeCount-1] < endValue) {
-		exitError(1, 0, "Prime initialisation file does not contain large enough primes. %s is only large enough for primes up to %lld", 
-			files[0],primes[primeCount-1] * primes[primeCount-1] );
+	// Check the file reaches a high enough prime for the task in hand ie: sqrt(endValue)
+	Prime maxValue;
+	prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
+	if (prime_lt(maxValue, endValue)) {
+		PrimeString s;
+		prime_to_str(s, maxValue);
+		exitError(1, 0, "Prime initialisation too small. %s is only large enough for primes up to %s", 
+			initFileName, s );
 	}
+	
 
-	if (verbose) stdLog("File checks passed (%s)", files[0]);
+	if (verbose) stdLog("File checks passed (%s)", initFileName);
 }
 
 
 
 
 void finalFile() {
-	if ( munmap( primes, fileHandles[0].statBuffer.st_size) ) {
-		exitError(1, errno, "failed to unmap file %s", files[0]);
-	}
-
-	if ( close(fileHandles[0].handle) ) {
-		exitError(1, errno, "failed to close file %s", files[0]);
-	}
+	// Unmap the file and close the handle
+	if ( munmap( primes, initFileSize) ) exitError(1, errno, "failed to unmap file %s", initFileName);
+	if ( close(initFileHandle) )  exitError(1, errno, "failed to close file %s", initFileName);
 }
 
 
@@ -264,7 +283,7 @@ void finalFile() {
 
 void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
     int threadNum;
-    if (singleFile && !singleThread) {
+    if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
         sem_wait(&threads[threadNum].writeSemaphore);
     }
@@ -303,7 +322,7 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
             }
         }
     }
-    if (singleFile && !singleThread) {
+    if (singleFile && threadCount > 1) {
         sem_post(threads[threadNum].nextThreadWriteSemaphore);
     }
 }
@@ -312,7 +331,7 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
 
 void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
 	int threadNum;
-	if (singleFile && !singleThread) {
+	if (singleFile && threadCount > 1) {
 		threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
 		sem_wait(&threads[threadNum].writeSemaphore);
 	}
@@ -352,9 +371,15 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
             }
         }
     }
-	if (singleFile && !singleThread) {
+	if (singleFile && threadCount > 1) {
 		sem_post(threads[threadNum].nextThreadWriteSemaphore);
 	}
+}
+
+
+
+
+void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file ) {
 }
 
 
@@ -479,7 +504,7 @@ void runThreads() {
 		threads[0].threadNum = 0;
 	}
 	else{
-		if (singleFile && !singleThread) {
+		if (singleFile && threadCount > 1) {
 			// initialise the semaphores.
 			// these will be used to sequence the writes correctly.
 			sem_init(&(threads[0].writeSemaphore), 0, 1);
@@ -503,7 +528,7 @@ void runThreads() {
 			int * returnValue;
 			pthread_join(threads[threadNum].threadHandle, (void**)&returnValue);
 		}
-		if (singleFile && !singleThread) {
+		if (singleFile && threadCount > 1) {
 			for (int threadNum = 0; threadNum < threadCount; ++threadNum) {
 				sem_destroy(&threads[threadNum].writeSemaphore);
 			}
@@ -521,28 +546,25 @@ void runThreads() {
 int main(int argC, char ** argV) {
 	parseArgs(argC, argV);
 
-	// Set the start and finish values
-	Prime scale;
-	str_to_prime(scale, startValueScale);
-	str_to_prime(startValue, startValueString);
-	prime_mul_prime(startValue, startValue, scale);
-	str_to_prime(scale, endValueScale);
-	str_to_prime(endValue, endValueString);
-	prime_mul_prime(endValue, endValue, scale);
-	str_to_prime(scale, chunkSizeScale);
-	str_to_prime(chunkSize, chunkSizeString);
-	prime_mul_prime(chunkSize, chunkSize, scale);
-
 	// Set the output mode
 	switch (fileType) {
-		case FILE_TYPE_TEXT:          writePrime = writePrimeText;         break; 
-		case FILE_TYPE_SYSTEM_BINARY: writePrime = writePrimeSystemBinary; break;
+		case FILE_TYPE_TEXT:              
+			writePrime = writePrimeText;         
+			break;
+
+		case FILE_TYPE_SYSTEM_BINARY:     
+			writePrime = writePrimeSystemBinary;    
+			break;
+
+		case FILE_TYPE_COMPRESSED_BINARY: 
+			writePrime = writePrimeCompressedBinary;
+			break;
 	}
 
-	if (fileCount == 0) initializeSelf();
-	else initializeFromFile();
+	if (initFileName) initializeFromFile();
+	else initializeSelf();
 	
-	if (!singleFile || useStdout) runThreads();
+	if (useStdout || !singleFile) runThreads();
 	else {
 		theSingleFile = openFileForPrime(startValue, endValue);
 		runThreads();
@@ -551,8 +573,9 @@ int main(int argC, char ** argV) {
         }
 	}
 	
-	if (fileCount == 0) finalSelf();
-	else finalFile();
+	if (initFileName) finalFile(); 
+	else finalSelf();
+
 	return 0;
 }
 

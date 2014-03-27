@@ -27,32 +27,31 @@
 #endif
 
 
-#ifndef PRIME_ARCH
-	#define PRIME_ARCH INT
+#if ! defined PRIME_ARCH_INT && ! defined PRIME_ARCH_GMP
+	#error PRIME_ARCH_ not set
 #endif
 
 
-#if PRIME_ARCH == INT
+#if PRIME_ARCH_INT
 	#include "prime_64.h"
-#elif PRIME_ARCH == GMP
+#elif PRIME_ARCH_GMP
 	#include "primegmp.h"
+#else
+	#error PRIME_ARCH is invalid
 #endif
 
 
 typedef char PrimeString[PRIME_STRING_SIZE];
 
 // Config parameters
-extern char * startValueString;
-extern char * startValueScale;
-extern char * endValueString;
-extern char * endValueScale;
-extern char * chunkSizeString;
-extern char * chunkSizeScale;
+extern Prime startValue;
+extern Prime endValue;
+extern Prime chunkSize;
 
 extern int threadCount;
-extern int singleThread;
 extern pthread_key_t threadNumKey;
 
+extern char * initFileName;
 extern char * fileName;
 extern int singleFile;
 extern int useStdout;
@@ -66,9 +65,6 @@ extern int silent;
 extern int verbose;
 
 
-// For for file based initialisation
-extern char * * files;
-extern int fileCount;
 
 void stdLog(char * str, ...);
 void exitError(int num, int errorNumber, char * str, ...);

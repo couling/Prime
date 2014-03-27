@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <math.h>
 
-#include "prime_64.h"
 #include "prime_shared.h"
 
 

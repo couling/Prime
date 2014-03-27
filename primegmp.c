@@ -1,11 +1,8 @@
 #include<stdio.h>
 #include<string.h>
 #include<errno.h>
-#include "primegmp.h"
-#include "primeshared.h"
 
-Prime prime_1;
-Prime prime_2;
+#include "prime_shared.h"
 
 char * prime_to_str(char * s, Prime prime) {
     Prime buffer;
@@ -22,12 +19,7 @@ char * prime_to_str(char * s, Prime prime) {
 
 void str_to_prime(Prime prime, char * s) {
     size_t sSize = strlen(s);
-    if (sSize > PRIME_STRING_SIZE) {
-	int lerrno = errno;
-        fprintf(stderr, "%s Error: Invalid Number (%s)\n",
-            timeNow(), s);
-        exitError(2, lerrno);
-    }
+    if (sSize > PRIME_STRING_SIZE) exitError(1,errno,"Invalid Number (%s)\n", s);
     
     char inBuffer[PRIME_STRING_SIZE];
     
@@ -35,9 +27,7 @@ void str_to_prime(Prime prime, char * s) {
     for (pos = 0; pos < sSize; ++pos) {
         if (s[pos] > '9' || s[pos] < '0') {
             int lerrno = errno;
-            fprintf(stderr, "%s Error: Invalid Number (%s)\n",
-                timeNow(), s);
-            exitError(2, lerrno);
+            exitError(1, 0,"Invalid Number (%s)", s);
         }
         inBuffer[pos] = s[pos] - '0';
     }
@@ -76,7 +66,7 @@ void prime_add_prime(Prime target, Prime in1, Prime in2) {
 
 void prime_sub_num(Prime target, Prime in1, mp_limb_t in2) {
     Prime tmp;
-    mpn_sub_n(tmp, in1, PRIME_LIMB_COUNT, in2);
+    mpn_sub_1(tmp, in1, PRIME_LIMB_COUNT, in2);
 	mpn_copyd(target, tmp, PRIME_LIMB_COUNT);
 }
 

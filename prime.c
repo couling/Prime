@@ -39,7 +39,7 @@ for each time a prime is touched it uses addition and not division.
 
 #define ALLOC_UNIT 0x100000
 #define APPLY_DEBUG_MASK 0xFFFF
-#define SCAN_DEBUG_MASK 0x3FFFFF
+#define SCAN_DEBUG_MASK 0x3FFFF
 
 
 // For threading
@@ -87,7 +87,7 @@ static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t ma
 	// One which starts at prime^2 and one which starts at the beginning
 	// process() would be able to determine when to use the two through 
 	// binary search.
-	
+
 	Prime value;
 	prime_mul_prime(value, prime, prime);
 	// prime_sub_prime(value, prime, offset);
@@ -121,12 +121,11 @@ static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t ma
 }
 
 
-
-static void getPrimeFromMap(Prime value, Prime offset, size_t byteIndex, int bitIndex) {
-    prime_set_num(value, byteIndex);
-    prime_mul_num(value, value, 16);
-	prime_add_num(value, value, byteIndex);
-	prime_add_prime(value, value, offset);
+#define getPrimeFromMap(value, offset, byteIndex, bitIndex) {\
+    prime_set_num(value, byteIndex);\
+    prime_mul_num(value, value, 16);\
+	prime_add_num(value, value, byteIndex);\
+	prime_add_prime(value, value, offset);\
 }
 
 
@@ -169,8 +168,15 @@ static void initializeSelf() {
 	size_t range = prime_get_num(pRange);
 	unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
 	memset(bitmap, 0xFF, range);
-	primeCount = 0;
 
+	// The first byte is tricky so we hard code primes less than 16
+	// We never represent 2 as prime (we never use even numbers)
+	prime_set_num(primes[0], 3);
+	prime_set_num(primes[1], 5);
+	prime_set_num(primes[2], 7);
+	prime_set_num(primes[3], 11);
+	prime_set_num(primes[4], 13);
+	primeCount = 5;
 
 	// Evaluate all primes up to sqrt(sqrt(endValue))
 	// Each prime found here needs to be applied to the map
@@ -180,8 +186,9 @@ static void initializeSelf() {
     prime_add_num(pRange, maxRequired, 15);
     prime_div_num(pRange, pRange, 16);
     size_t endRange = prime_get_num(pRange);
-	size_t i = 0;
+	size_t i = 1;
     while (i <= endRange) {
+		stdLog("i is %d", (int) i);
         if (verbose && !(i & SCAN_DEBUG_MASK)) 
             stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
         
@@ -385,12 +392,11 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
         if (bitmap[i]) {
             for (int j = 1; j < 16; j+=2) {
                 if (bitmap[i] & checkMask[j]) {
-                    Prime value = from + (((Prime) i) << 4) + j;
-                    #ifdef VERBOSE_DEBUG
-                    if (verbose) stdLog("found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, result = %.2X, from = %lld",
-                        value, (Prime)i, (int) bitmap[i], (int) j, (int) checkMask[j], (int)(bitmap[i] & checkMask[j]), from);
-                    #endif
-                    fwrite(&value, sizeof(Prime), 1, file);
+                    Prime value;
+                    getPrimeFromMap(value, from, i, j);
+                    PrimeString s;
+                    prime_to_str(s, value);
+					fwrite(&value, sizeof(Prime), 1, file);
                 }
             }
         }
@@ -399,13 +405,11 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
     if (bitmap[endRange]) {
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
-                Prime value = from + (((Prime) endRange) << 4) + j;
-                #ifdef VERBOSE_DEBUG
-                if (verbose) stdLog("found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
-                    "result = %.2X, from = %lld", value, (Prime)endRange, (int) bitmap[endRange], (int) j,
-                    (int) checkMask[j], (int)(bitmap[endRange] & checkMask[j]), from);
-                #endif
-                if (value < endValue) fwrite(&value, sizeof(Prime), 1, file);
+                Prime value;
+                getPrimeFromMap(value, from, endRange, j);
+                PrimeString s;
+                prime_to_str(s, value);
+				if (prime_lt(value, endValue)) fwrite(&value, sizeof(Prime), 1, file);
             }
         }
     }

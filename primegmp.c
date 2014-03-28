@@ -103,6 +103,15 @@ void prime_mul_prime(Prime target, Prime in1, Prime in2) {
 }
 
 
+
+void prime_mul_num(Prime target, Prime in1, mp_limb_t in2) {
+    Prime result;
+    mpn_mul_1(result, in1, PRIME_LIMB_COUNT, in2);
+    mpn_copyd(target, result, PRIME_LIMB_COUNT);
+}
+
+
+
 /*
 void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2) {
     Prime ldiv;
@@ -122,6 +131,15 @@ void prime_div_prime(Prime div, Prime in1, Prime in2) {
     mp_size_t in2Size = PRIME_LIMB_COUNT;
     while (!in2[in2Size-1]&&in2Size) --in2Size;
     mpn_tdiv_qr(ldiv, lmod, 0, in1, PRIME_LIMB_COUNT, in2, in2Size);
+    mpn_copyd(div,ldiv,PRIME_LIMB_COUNT);
+}
+
+
+
+void prime_div_num(Prime div, Prime in1, mp_limb_t in2) {
+    Prime ldiv;
+    Prime lmod;
+    mpn_tdiv_qr(ldiv, lmod, 0, in1, PRIME_LIMB_COUNT, &in2, 1);
     mpn_copyd(div,ldiv,PRIME_LIMB_COUNT);
 }
 

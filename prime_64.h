@@ -3,7 +3,6 @@
 
 typedef long long Prime;
 
-void printValue(FILE * file, Prime value);
 #define prime_set_num(target, value) target = value
 #define prime_get_num(value) ( value )
 #define str_to_prime(target, value) target = _str_to_prime(value)
@@ -42,10 +41,5 @@ void prime_to_str(char * target, Prime value);
 
 #define prime_cp(target,result) ( target = result )
 
-
-#define prime_init()
-
-#define prime_1 1
-#define prime_2 2
 
 #endif // prime_long_long_h

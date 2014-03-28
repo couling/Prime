@@ -44,11 +44,4 @@ void prime_sqrt(Prime target, Prime in);
 
 #define prime_cp(target,result) mpn_copyd(target,result,PRIME_LIMB_COUNT)
 
-
-void prime_init();
-
-extern Prime prime_1 ;
-extern Prime prime_2 ;
-
-
 #endif // PRIME_GMP_H

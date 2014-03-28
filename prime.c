@@ -74,6 +74,7 @@ FILE * theSingleFile;
 // All primes less than or sqrt(endValue)
 // Generating these is what initialisation is for
 size_t primeCount;                 // Number of primes stored
+size_t primesAllocated;            // Number of primes the array can store
 Prime * primes;                    // The array of primes
 
 
@@ -81,7 +82,7 @@ Prime * primes;                    // The array of primes
 unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
 unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
 
-void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) {
+static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) {
 	// An optomisatin can be made here by splitting this function into two.
 	// One which starts at prime^2 and one which starts at the beginning
 	// process() would be able to determine when to use the two through 
@@ -112,13 +113,6 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 	prime_set_num(applyTo, mapSize);
 	prime_mul_num(applyTo, applyTo, 16);
 	while (prime_lt(value,applyTo)) {
-		#ifdef VERBOSE_DEBUG
-		if (verbose) stdLog("prime = %lld, value = %lld, map[%lld] = %.2X, "
-			"removeMask[%d] = %.2X, result = %.2X, offset = %lld", 
-			prime, value, value >> 4, (int) map[value >> 4], (int) value & 0x0F, 
-			(int) removeMask[value & 0x0F], (int)(map[value >> 4] & removeMask[value & 0x0F]),
-			offset);
-		#endif
 		Prime tmp;
 		prime_div_num(tmp, value, 16);
 		map[prime_get_num(tmp)] &= removeMask[prime_get_num(value) & 0x0F];
@@ -128,7 +122,32 @@ void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) 
 
 
 
-void initializeSelf() {
+static void getPrimeFromMap(Prime value, Prime offset, size_t byteIndex, int bitIndex) {
+    prime_set_num(value, byteIndex);
+    prime_mul_num(value, value, 16);
+	prime_add_num(value, value, byteIndex);
+	prime_add_prime(value, value, offset);
+}
+
+
+
+static void addPrime(Prime value) {
+	if (primeCount == primesAllocated) {
+    	if (verbose) {
+    		PrimeString valueString;
+    	    prime_to_str(valueString, value);
+    	    stdLog("Initialized %zd primes, reached value %s (ex)", primeCount, valueString);
+    	}
+    	primesAllocated += ALLOC_UNIT;
+    	primes = reallocSafe(primes, primesAllocated * sizeof(Prime));
+    }
+    prime_cp(primes[primeCount], value);
+    ++primeCount;
+}
+
+
+
+static void initializeSelf() {
 	if (!silent) {
 		PrimeString startValueString;
 		prime_to_str(startValueString, startValue);
@@ -138,48 +157,64 @@ void initializeSelf() {
 			startValueString, endValueString);
 	}
 
-	size_t primesAllocated = ALLOC_UNIT;
+	// Allocate a bitmap to represent 0 to sqrt(endValue)
+	primesAllocated = ALLOC_UNIT;
 	primes = mallocSafe(primesAllocated * sizeof(Prime));
 	Prime maxRequired;
 	prime_sqrt(maxRequired, endValue);
+	prime_sqrt(maxRequired, maxRequired);
 	Prime pRange;
 	prime_add_num(pRange, maxRequired, 15);
 	prime_div_num(pRange, pRange, 16);
 	size_t range = prime_get_num(pRange);
 	unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
 	memset(bitmap, 0xFF, range);
-
-	Prime value;
-	prime_set_num(value, 3);
 	primeCount = 0;
 
-	while (prime_lt(value,maxRequired)) {
 
-		if (bitmap[value >> 4] & checkMask[value & 0x0F]) { // if value prime
-			applyPrime(value, 0, bitmap, range);
-			if (primeCount == primesAllocated) {
-				if (verbose) {
-					PrimeString valueString;
-					prime_to_str(valueString, value);
-					stdLog("Initialized %zd primes, reached value %s (ex)", primeCount, valueString);
-				}
-				primesAllocated += ALLOC_UNIT;
-				primes = reallocSafe(primes, primesAllocated * sizeof(Prime));
-			}
-			primes[primeCount] = value;
-			++primeCount;
-		}
-		#ifdef VERBOSE_DEBUG
-		else {
-			PrimeString valueString;
-			prime_to_str(valueString, value);
-			if (verbose) stdLog("Ruled out %s due to bitmap[%d] = %d and checkMask[%d] = %d", 
-				valueString, (int) value >> 4, (int)bitmap[value >> 4], 
-				(int)value & 0x0F, (int)checkMask[value & 0x0F]);
-		}
-		#endif
-		value+=2;
-	}
+	// Evaluate all primes up to sqrt(sqrt(endValue))
+	// Each prime found here needs to be applied to the map
+	Prime zero;
+	prime_set_num(zero, 0);
+    prime_sqrt(maxRequired, maxRequired);
+    prime_add_num(pRange, maxRequired, 15);
+    prime_div_num(pRange, pRange, 16);
+    size_t endRange = prime_get_num(pRange);
+	size_t i = 0;
+    while (i <= endRange) {
+        if (verbose && !(i & SCAN_DEBUG_MASK)) 
+            stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+        
+        if (bitmap[i]) {
+            for (int j = 1; j < 16; j+=2) {
+                if (bitmap[i] & checkMask[j]) {
+                    Prime value;
+					getPrimeFromMap(value, zero, i, j);
+					applyPrime(value, zero, bitmap, range);			
+					addPrime(value);	
+                }
+            }
+        }
+		++i;
+    }
+
+	// Evaluate all primes from sqrt(sqrt(endValue)) up to sqrt(endValue)
+	// Primes here do not need to be applied to the map
+    while (i < range) {
+        if (verbose && !(i & SCAN_DEBUG_MASK))
+            stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+        
+        if (bitmap[i]) {
+            for (int j = 1; j < 16; j+=2) {
+                if (bitmap[i] & checkMask[j]) {
+                    Prime value;
+                    getPrimeFromMap(value, zero, i, j);
+					addPrime(value);
+                }
+            }
+        }
+        ++i;
+    }
 
 	free(bitmap);
 
@@ -210,7 +245,7 @@ void initializeFromFile() {
 		exitError(1, 0, "unexpected file length %s (%lld) this should be divisible by %zd", 
 			initFileName, (long long)initFileSize, sizeof(Prime));
 
-	primeCount = initFileSize / sizeof(Prime);
+	primeCount = primesAllocated = initFileSize / sizeof(Prime);
 	if ( primeCount < 2 )
 		exitError(1, 0, "unexpected file length %s (%lld) should be at lease two primes long %zd bytes",
 			initFileName, (long long) initFileSize, sizeof(Prime) * 2);
@@ -255,7 +290,7 @@ void initializeFromFile() {
 		}
 	}
 
-	// Check the file reaches a high enough prime for the task in hand ie: sqrt(endValue)
+	// The file reaches a high enough prime for the task in hand ie: sqrt(endValue)
 	Prime maxValue;
 	prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
 	if (prime_lt(maxValue, endValue)) {
@@ -287,38 +322,40 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
         sem_wait(&threads[threadNum].writeSemaphore);
     }
-	if (from <= 2 && to >=2) {
-		printValue(file,2ll);
+	Prime prime_2;
+	prime_set_num(prime_2, 2);
+	if (prime_le(from, prime_2) && prime_ge(to, prime_2)) {
+		fprintf(file, "2\n");
 	}
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
-        if (!(i & SCAN_DEBUG_MASK)) {
-            if (verbose) stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
-        }
+        if (verbose && !(i & SCAN_DEBUG_MASK)) 
+            stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+
         if (bitmap[i]) {
             for (int j = 1; j < 16; j+=2) {
                 if (bitmap[i] & checkMask[j]) {
-                    Prime value = from + (((Prime) i) << 4) + j;
-                    #ifdef VERBOSE_DEBUG
-                    if (verbose) stdLog("found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, result = %.2X, from = %lld",
-                        value, (Prime)i, (int) bitmap[i], (int) j, (int) checkMask[j], (int)(bitmap[i] & checkMask[j]), from);
-                    #endif
-                    printValue(file,value);
+                    Prime value;
+					getPrimeFromMap(value, from, i, j);
+					PrimeString s;
+					prime_to_str(s, value);
+					fprintf(file, "%s\n", s);
                 }
             }
         }
     }
+
     if (verbose) stdLog("Scanning last byte of bitmap for new primes");
     if (bitmap[endRange]) {
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
-                Prime value = from + (((Prime) endRange) << 4) + j;
-                #ifdef VERBOSE_DEBUG
-                if (verbose) stdLog("found prime = %lld, map[%lld] = %.2X, checkMask[%d] = %.2X, "
-                    "result = %.2X, from = %lld", value, (Prime)endRange, (int) bitmap[endRange], (int) j,
-                    (int) checkMask[j], (int)(bitmap[endRange] & checkMask[j]), from);
-                #endif
-                if (value < endValue) printValue(file,value);
+                Prime value;
+				getPrimeFromMap(value, from, endRange, j);
+                if (prime_lt(value, endValue)) {
+                    PrimeString s;
+                    prime_to_str(s, value);
+                    fprintf(file, "%s\n", s);
+				}
             }
         }
     }
@@ -335,10 +372,11 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
 		threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
 		sem_wait(&threads[threadNum].writeSemaphore);
 	}
-	if (from <= 2 && to >= 2) {
-		Prime two = 2;
-		fwrite(&two, sizeof(Prime), 1, file); 
-	}
+	Prime prime_2;
+    prime_set_num(prime_2, 2);
+    if (prime_le(from, prime_2) && prime_ge(to, prime_2)) {
+		fwrite(&prime_2, sizeof(Prime), 1, file);
+    }
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
         if (!(i & SCAN_DEBUG_MASK)) {
@@ -396,6 +434,8 @@ void process(Prime from, Prime to, FILE * file) {
 	}
 	Prime askFrom;  // This is what were were asked to calculate from
 	prime_cp(askFrom, from);
+	Prime prime_2;
+	prime_set_num(prime_2, 2);
 	if (prime_lt(from, prime_2)) {
 		// Process ignores even primes
 		// Process doesnt know 1 isnt a prime, so skip it!
@@ -421,16 +461,12 @@ void process(Prime from, Prime to, FILE * file) {
 
 	for (size_t i = 0; i < primeCount; ++i) {
 		if (verbose) {
-			#ifndef VERBOSE_DEBUG
 			if (!(i & APPLY_DEBUG_MASK)) {
-			#endif
 				PrimeString primeValueString;
 				prime_to_str(primeValueString, primes[i]);
 				stdLog("Applying primes %02.2f%% (%zd of %zd [%s])", 
 					100 * ((double)i) / ((double)primeCount),i+1, primeCount, primeValueString);
-			#ifndef VERBOSE_DEBUG
 			}
-			#endif
 		}
 		applyPrime(primes[i], from, bitmap, range);
 	}
@@ -457,15 +493,13 @@ void * processAllChunks(void * threadPt) {
 	int chunkNum = 0;
 	while (prime_lt(to, endValue)) {
 		if (chunkNum % threadCount == (thread->threadNum - 1)) {
-			if (useStdout) process(from, to, stdout);
-			else if (singleFile) process(from, to, theSingleFile);
+			if (singleFile) process(from, to, theSingleFile);
 			else {
-				FILE* file = openFileForPrime(from, to);
+				FILE * file = openFileForPrime(from, to);
 				process(from, to, file);
 				if (fclose(file)) {
             		exitError(2, errno, "closing prime file reported error - contents may have been truncated");
 		        }
-
 			}
 		}
 		prime_cp(from,to);
@@ -547,6 +581,7 @@ int main(int argC, char ** argV) {
 	parseArgs(argC, argV);
 
 	// Set the output mode
+	// This is done by setting a function pointer
 	switch (fileType) {
 		case FILE_TYPE_TEXT:              
 			writePrime = writePrimeText;         
@@ -564,10 +599,16 @@ int main(int argC, char ** argV) {
 	if (initFileName) initializeFromFile();
 	else initializeSelf();
 	
-	if (useStdout || !singleFile) runThreads();
-	else {
-		theSingleFile = openFileForPrime(startValue, endValue);
-		runThreads();
+	if (singleFile) {
+		if (useStdout) theSingleFile = stdout;
+		else theSingleFile = openFileForPrime(startValue, endValue);
+	}
+
+	// This line kicks off the processing
+	runThreads();
+
+	if (singleFile) {
+		// This will close stdout if useStdOut was selected.
 		if (fclose(theSingleFile)) {
 	        exitError(2, errno, "closing prime file reported error - contents may have been truncated");
         }

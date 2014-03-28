@@ -149,9 +149,3 @@ void prime_sqr(Prime target, Prime in) {
 void prime_sqrt(Prime target, Prime in) {
 }
 
-
-
-void prime_init() {
-	prime_set_num(prime_1, 1);
-	prime_set_num(prime_2, 2);
-}

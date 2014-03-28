@@ -366,7 +366,7 @@ void parseArgs(int argC, char ** argV) {
 		case 'v': verbose = !silent;                              break;
 		case 'f': useStdout = 0;              singleFile = 1;     break;
 		case 'F': useStdout = 0;              singleFile = 0;     break;
-		case 'p': useStdout = 0;                                  break;
+		case 'p': useStdout = 1;              singleFile = 1;     break;
 		case 'a': fileType = FILE_TYPE_TEXT;                      break;
 		case 'b': fileType = FILE_TYPE_SYSTEM_BINARY;             break;
 		case 'B': fileType = FILE_TYPE_COMPRESSED_BINARY;         break;

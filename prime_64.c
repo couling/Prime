@@ -7,14 +7,6 @@
 
 
 
-void printValue(FILE * file, Prime value) {
-	if (fprintf(file,"%lld\n", value) < 0) {
-		exitError(2, errno, "Failed to write prime number (%lld)", value);
-	}
-}
-
-
-
 Prime _str_to_prime(char * s) {
 	Prime value;
 

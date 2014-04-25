@@ -72,6 +72,9 @@ void exitError(int num, int errorNumber, char * str, ...);
 void * mallocSafe(size_t bytes);
 void * reallocSafe(void * existing, size_t bytes);
 
+char * formatFileNamePart(char * formattedFileName, int bufferSize, const char * source, Prime from, Prime to);
+char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Prime to);
+void mkdirs(char * formattedFileName);
 FILE * openFileForPrime(Prime from, Prime to);
 
 void parseArgs(int argC, char ** argV);

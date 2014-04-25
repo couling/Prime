@@ -25,27 +25,23 @@ int maxUsable;
 int primesAllocated;
 Prime * primes;
 
-char ** files;
-int fileCount;
 
+void initializeSelf(FILE * file) {
+    stdLog("Running Self initialisation for %lld (inc) to %lld (ex)", startValue, endValue);
 
+    primesAllocated = ALLOC_UNIT;
+    primes = mallocSafe(primesAllocated * sizeof(long long));
 
-void initializeSelf() {
-	stdLog("Running Self initialisation for %lld (inc) to %lld (ex)", startValue, endValue);
-
-	primesAllocated = ALLOC_UNIT;
-	primes = mallocSafe(primesAllocated * sizeof(long long));
-
-	// To bootstrap the process we hard code the first three primes
-    if (startValue <= 2 && endValue > 2) printf("%lld\n", 2ll);
-    if (startValue <= 3 && endValue > 3) printf("%lld\n", 3ll);
-    if (startValue <= 3 && endValue > 3) printf("%lld\n", 5ll);
-	
-	primes[0] = 3ll; 
-	primes[1] = 5ll;
-	primeCount=2;
-	maxUsable=1;
-	long long value = 7ll;
+    // To bootstrap the process we hard code the first three primes
+    if (startValue <= 2 && endValue > 2) fprintf(file, "%lld\n", 2ll);
+    if (startValue <= 3 && endValue > 3) fprintf(file, "%lld\n", 3ll);
+    if (startValue <= 3 && endValue > 3) fprintf(file, "%lld\n", 5ll);
+    
+    primes[0] = 3ll; 
+    primes[1] = 5ll;
+    primeCount=2;
+    maxUsable=1;
+    long long value = 7ll;
     while (1){
         long long nextPrimeRequired = primes[maxUsable] * primes[maxUsable];
         stdLog("Checking against %d primes - max %lld - checking value %lld",
@@ -54,64 +50,57 @@ void initializeSelf() {
             int i=0;
             while (i<maxUsable && value % primes[i]) ++i;
             if (i == maxUsable) {
-				if (primeCount == primesAllocated) {
-					primesAllocated += ALLOC_UNIT;
-					primes = reallocSafe(primes, primesAllocated * sizeof(long long));
-				}
-				primes[primeCount] = value;
-				++primeCount;
-				if (value >= startValue) printf("%lld\n", value);
-				if (value * value > endValue) {
-					value += 2;
-					goto Complete;
-				}
+                if (primeCount == primesAllocated) {
+                    primesAllocated += ALLOC_UNIT;
+                    primes = reallocSafe(primes, primesAllocated * sizeof(long long));
+                }
+                primes[primeCount] = value;
+                ++primeCount;
+                if (value >= startValue) fprintf(file, "%lld\n", value);
+                if (value * value > endValue) {
+                    value += 2;
+                    goto Complete;
+                }
             }
             value += 2;
         }
-		value += 2;
+        value += 2;
         ++maxUsable;
     }
 
-	Complete:
+    Complete:
 
-	if (startValue < value) {
-		stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", startValue, value);
-		startValue = value;
-	}
-	else {
-		if (!(startValue & 1)) ++startValue;
-		while (primes[maxUsable] * primes[maxUsable] < startValue) ++maxUsable;
-	}
+    if (startValue < value) {
+        stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", startValue, value);
+        startValue = value;
+    }
+    else {
+        if (!(startValue & 1)) ++startValue;
+        while (primes[maxUsable] * primes[maxUsable] < startValue) ++maxUsable;
+    }
 
-	stdLog("Prime array now full with %d primes", primeCount);
-
-}
-
-
-
-void initializeFromFile() {
+    stdLog("Prime array now full with %d primes", primeCount);
 
 }
-
 
 
 void process(FILE * file) {
-	stdLog("Running process for %lld (inc) to %lld (ex)", startValue, endValue);
-	long long value = startValue;
+    stdLog("Running process for %lld (inc) to %lld (ex)", startValue, endValue);
+    long long value = startValue;
     while (value < endValue) {
         long long nextPrimeRequired = primes[maxUsable] * primes[maxUsable];
         stdLog("Checking against %d primes - max %lld - checking value %lld",
              maxUsable, primes[maxUsable-1], value);
         while (value < nextPrimeRequired) {
-			if (value >= endValue) break;
+            if (value >= endValue) break;
             int i=0;
             while (i<maxUsable && value % primes[i] ) ++i;
             if (i == maxUsable) fprintf(file, "%lld\n", value);
             value += 2;
         }
-		// if this dropped out the loop due to nextPrimeRequred, we know that this value
-		// can be factored (next prime required is the square of a prime).
-		value += 2;
+        // if this dropped out the loop due to nextPrimeRequred, we know that this value
+        // can be factored (next prime required is the square of a prime).
+        value += 2;
         ++maxUsable;
     }
 
@@ -123,22 +112,26 @@ void process(FILE * file) {
 
 
 void final() {
-	free(primes);
+    free(primes);
 }
 
 
 
 int main(int argC, char ** argV) {
-	parseArgs(argC, argV);
-	if (fileCount == 0) initializeSelf();
-	else initializeFromFile();
-	if (useStdout) process(stdout);
-	else {
-		FILE * theFile = openFileForPrime(startValue, endValue);
-		process(theFile);
-		fclose(theFile);
-	}
-	final();
-	return 0;
+    parseArgs(argC, argV);
+    
+    if (initFileName != NULL) {
+        exitError(1,0,"Can not initialized from file; feature not implemented");
+    }
+    
+    FILE * theFile;
+    if (useStdout) theFile = stdout;
+    else theFile = openFileForPrime(startValue, endValue);
+    
+    initializeSelf(theFile);
+    process(theFile);
+    final();
+    fclose(theFile);
+    return 0;
 }
 

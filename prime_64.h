@@ -16,11 +16,13 @@ void prime_to_str(char * target, Prime value);
 #define prime_sub_prime(target, in1, in2) ( target = in1 - in2 )
 
 
-#define prime_mul_prime(target, value1, value2) target = value1 * value2
-#define prime_mul_num(target, value1, value2) target = value1 * value2
+#define prime_mul_prime(target, value1, value2) ( target = value1 * value2 )
+#define prime_mul_num(target, value1, value2) ( target = value1 * value2 )
+#define prime_mul_16(target, value1) ( target = value1 << 4 )
 //void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2);
 #define prime_div_prime(div, in1, in2) ( div = in1 / in2 )
 #define prime_div_num(div, in1, in2) ( div = in1 / in2 )
+#define prime_div_16(div, in1) ( div = in1 >> 4)
 #define prime_mod_prime(mod, in1, in2) ( mod = in1 % in2 )
 #define prime_mod_num(mod, in1, in2) ( mod = in1 % in2 )
 

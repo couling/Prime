@@ -22,9 +22,11 @@ void prime_right_shift(Prime target, Prime in, unsigned int count);
 
 void prime_mul_prime(Prime target, Prime in1, Prime in2);
 void prime_mul_num(Prime target, Prime in1, mp_limb_t in2);
+#define prime_mul_16(target, in1) mpn_lshift(target, in1, PRIME_LIMB_COUNT, 4)
 //void prime_div_mod(Prime div, Prime mod, Prime in1, Prime in2);
 void prime_div_prime(Prime div, Prime in1, Prime in2);
 void prime_div_num(Prime div, Prime in1, mp_limb_t in2);
+#define prime_div_16(div, in1) mpn_rshift(div, in1, PRIME_LIMB_COUNT, 4)
 void prime_mod_prime(Prime mod, Prime in1, Prime in2);
 void prime_mod_num(Prime mod, Prime in1, mp_limb_t in2);
 

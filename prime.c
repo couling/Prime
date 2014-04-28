@@ -111,10 +111,10 @@ static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t ma
 
     Prime applyTo;
     prime_set_num(applyTo, mapSize);
-    prime_mul_num(applyTo, applyTo, 16);
+    prime_mul_16(applyTo, applyTo);
     while (prime_lt(value,applyTo)) {
         Prime tmp;
-        prime_div_num(tmp, value, 16);
+        prime_div_16(tmp, value);
         map[prime_get_num(tmp)] &= removeMask[prime_get_num(value) & 0x0F];
         prime_add_prime(value, value, stepSize);
     }
@@ -123,7 +123,7 @@ static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t ma
 
 #define getPrimeFromMap(value, offset, byteIndex, bitIndex) {\
     prime_set_num(value, byteIndex);\
-    prime_mul_num(value, value, 16);\
+    prime_mul_16(value, value);\
     prime_add_num(value, value, bitIndex);\
     prime_add_prime(value, value, offset);\
 }
@@ -163,8 +163,9 @@ static void initializeSelf() {
     prime_sqrt(maxRequired, endValue);
     Prime pRange;
     prime_add_num(pRange, maxRequired, 15);
-    prime_div_num(pRange, pRange, 16);
+    prime_div_16(pRange, pRange);
     size_t range = prime_get_num(pRange);
+    if (verbose) stdLog("Bitmap will contain %zd bytes", range);
     unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
     memset(bitmap, 0xFF, range);
 
@@ -174,7 +175,7 @@ static void initializeSelf() {
     prime_set_num(zero, 0);
     prime_sqrt(maxRequired, maxRequired);
     prime_add_num(pRange, maxRequired, 15);
-    prime_div_num(pRange, pRange, 16);
+    prime_div_16(pRange, pRange);
     size_t endRange = prime_get_num(pRange);
     
     // The first byte is tricky so we hard code primes less than 16
@@ -433,7 +434,7 @@ void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, 
 void process(Prime from, Prime to, FILE * file) {
     Prime tmp;
 
-    if (!silent) {
+    if (verbose) {
         PrimeString fromString;
         prime_to_str(fromString, from);
         PrimeString toString;
@@ -536,16 +537,16 @@ void * processAllChunks(void * threadPt) {
 
 
 void runThreads() {
-    if (!silent) stdLog("Running multithread with %d threads", threadCount);
-
     threads = mallocSafe(sizeof(struct ThreadDescriptor) * threadCount);
 
     if (threadCount == 1) {
+        if (!silent) stdLog("Running single threaded");
         threads[0].threadNum = 1;
         processAllChunks(&(threads[0]));
         threads[0].threadNum = 0;
     }
     else{
+    if (!silent) stdLog("Running multithread with %d threads", threadCount);
         if (singleFile && threadCount > 1) {
             // initialise the semaphores.
             // these will be used to sequence the writes correctly.
@@ -565,7 +566,7 @@ void runThreads() {
 
         // Wait for the threads to complete.
         int exitStatus = 0;
-        if (!silent) stdLog("All threads now started");
+        if (verbose) stdLog("All threads now requested");
         for (int threadNum = 0; threadNum < threadCount; ++threadNum) {
             int * returnValue;
             pthread_join(threads[threadNum].threadHandle, (void**)&returnValue);

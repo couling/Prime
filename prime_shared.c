@@ -21,6 +21,7 @@ Prime chunkSize;
 
 int threadCount;
 
+int allowClobber;
 char * dirName;
 char * fileName;
 char * initFileName;
@@ -38,10 +39,10 @@ pthread_key_t threadNumKey;
 
 
 static char * defaultFileNames [] = {
-    "prime.%18x0o-%18x0O.txt",
-    "prime.%15x3ok-%15x3OK.txt",
-    "prime.%12x6om-%12x6OM.txt",
-    "prime.%9x9og-%9x9OG.txt"
+    "prime.%18e0o-%18e0O.txt",
+    "prime.%15e3ok-%15e3OK.txt",
+    "prime.%12e6om-%12e6OM.txt",
+    "prime.%9e9og-%9e9OG.txt"
 };
 
 
@@ -91,6 +92,23 @@ void exitError(int num, int errorNumber, char * str, ...) {
 
 
 
+void logWarning(int num, int errorNumber, char * str, ...) {
+    int * threadNumPt = pthread_getspecific(threadNumKey);
+    int threadNum = threadNumPt ? *threadNumPt : 0;
+    flockfile(stderr);
+    fprintf(stderr, "%s [%02d] Warning: ", timeNow(), threadNum);
+    va_list ap;
+    va_start(ap, str);
+    vfprintf(stderr, str, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    if (errorNumber)
+        fprintf(stderr, "%s [%02d] Warning: %s\n", timeNow(), threadNum, strerror(errorNumber));
+    funlockfile(stderr);
+}
+
+
+
 void * mallocSafe(size_t bytes) {
     void * result = malloc(bytes);
     if (!result) exitError(255, errno, "Could not allocate to %zd bytes", bytes);
@@ -123,6 +141,11 @@ static void openFilesnprintf(char * base, char ** target, int bufferSize, const 
 #define DEFAULT_LEFT_PADDING 0
 
 char * formatFileNamePart(char * formattedFileName, int bufferSize, const char * source, Prime from, Prime to) {
+    time_t rawtime;
+    struct tm * timeinfo;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    
     // Evaluate the file name
     char * writePosition = formattedFileName;
     const char * readPosition = source;
@@ -151,9 +174,9 @@ char * formatFileNamePart(char * formattedFileName, int bufferSize, const char *
                         leftPadding = 0;
                         do leftPadding = (leftPadding * 10) + (*(readPosition++) - '0' );
                         while (*readPosition >= '0' && *readPosition <= '9');
-                    case 'x':
-                    case 'X':
-                        if (*readPosition == 'x' || *readPosition == 'X') {
+                    case 'e':
+                    case 'E':
+                        if (*readPosition == 'e' || *readPosition == 'E') {
                             readPosition++;
                             if (*readPosition < '0' || *readPosition > '9') {
                                 exitError(1,0,"Invalid file name, expected 0 to 9 found: %c", *readPosition);
@@ -192,6 +215,28 @@ char * formatFileNamePart(char * formattedFileName, int bufferSize, const char *
                         break;
                     }
 
+
+                    case 't': {
+                        static char t[100];
+                        strftime(t, 100, "%H-%M-%S", timeinfo);
+                        openFilesnprintf(formattedFileName, &writePosition, bufferSize, "%s", t);
+                        break;
+                    }
+ 
+                    case 'd': {
+                        static char t[100];
+                        strftime(t, 100, "%Y-%b-%d", timeinfo);
+                        openFilesnprintf(formattedFileName, &writePosition, bufferSize, "%s", t);
+                        break;
+                    }
+
+                    case 'x': {
+                        int * threadNumPt = pthread_getspecific(threadNumKey);
+                        int threadNum = threadNumPt ? *threadNumPt : 0;
+                        openFilesnprintf(formattedFileName, &writePosition, bufferSize, "%d", threadNum);
+                        break;
+                    }
+
                     default:
                         exitError(1, 0, "Unrecognised character %c", *readPosition);
                         break;
@@ -222,7 +267,7 @@ char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Pri
     if (fileName[0] != '/') {
         writeBuffer = formatFileNamePart(writeBuffer, bufferSize, dirName, from, to);
         bufferSize -= writeBuffer - formattedFileName;
-        if (*writeBuffer != '/') {
+        if (writeBuffer != formattedFileName && *(writeBuffer-1) != '/') {
             writeBuffer = formatFileNamePart(writeBuffer, bufferSize, "/", from, to);
             bufferSize -= writeBuffer - formattedFileName;
         }
@@ -256,12 +301,10 @@ FILE * openFileForPrime(Prime from, Prime to) {
     mkdirs(formattedFileName);
 
     // Create the file
-    if (!silent)
-        stdLog("Starting new prime file: %s", formattedFileName);
-    FILE * file = fopen(formattedFileName, "wx");
-    if (!file)
-        exitError(2, errno, "Could not create new file: %s", formattedFileName);
-
+    if (!silent) stdLog("Starting new prime file: %s", formattedFileName);
+    FILE * file = fopen(formattedFileName, (allowClobber ? "w" :"wx"));
+    if (!file) exitError(2, errno, "Could not create new file: %s", formattedFileName);
+    return file;
 }
 
 
@@ -283,16 +326,12 @@ static void printUsage(int argC, char ** argV) {
             "  %s <options> [initialisation file]\n"
             "\n"
             "Start / end options:\n"
-            "  -o --start               start value in units\n"
-            "  -O --end                 end value in units\n"
-            "  -k --start-thousand      start value in thousands\n"
-            "  -K --end-thousand        end value in thousands\n"
-            "  -m --start-million       start value in millions\n"
-            "  -M -end-million          end value in millions\n"
-            "  -g --start-billion       start value in billions\n"
-            "  -G --end-billion         end value in billions\n"
-            "  -t --start-trillion      start value in trillions\n"
-            "  -T --end-trillion        end value in trillions\n"
+            "  -s --start               start value\n"
+            "                           suffix this with k,m,g,t to multiply by\n"
+            "                           one thousand, million, billion or trillion\n"
+            "  -e --end                 end value\n"
+            "                           suffix this with k,m,g,t to multiply by\n"
+            "                           one thousand, million, billion or trillion\n"
             "\n"
             "Output options:\n"
             "  -a --text-out            Write primes in text (ASKII new line delimited)\n"
@@ -305,19 +344,20 @@ static void printUsage(int argC, char ** argV) {
             "                           starts with /\n"
             "  -n --file-name           Specify the file name as a pattern\n"
             "                           Eg: prime.%%9x9og-%%9x9OG.txt\n"
-            "  -f --single-file         Write to a new file instead of stdout\n"
-            "  -F --multi-file          Write to one file per chunk instead of stdout\n"
+            "  -f --single-file         Write to a new file\n"
+            "  -F --multi-file          Write to one file per chunk\n"
+            "  -p --use-stdout          Write to the stdout, will not create files\n"
+            "  -k --clobber             Allow overwriting of existing files\n"
             "\n"
             "General processing options:"
             "  -c --chunk-million       size of chunks to process in millions\n"
             "                           (affects file size when using -F)\n"
             "  -C --chunk-billion       size of chunks to process in billions\n"
             "                           (affects file size when using -F)\n"
-            "  -x --thread-count        Specify the number of threads to use (default 1)\n"
+            "  -x --threads             Specify the number of threads to use (default 1)\n"
             "  -i --init-file           Specify an initialisation file generated with -b previously\n"
             "\n"
             "Debug & logging options:\n"
-            "  -s --silent               Disable progress output\n"
             "  -q --quiet                Same as -s\n"
             "  -v --verbose              Verbose output, meaningless with -s or -q\n"
             "\n"
@@ -327,49 +367,82 @@ static void printUsage(int argC, char ** argV) {
 
 
 
+static void stringToSize(Prime * target, char * size) {
+    size_t stringSize = strlen(size);
+    char multiplyerChar;
+    char * multiplyerString;
+    if (stringSize == 0) exitError(1,0,"No value given for number");
+    multiplyerChar = size[stringSize-1];
+    if (multiplyerChar < '0' || multiplyerChar > '9') {
+        switch (multiplyerChar) {
+            case 'k':
+            case 'K':
+                multiplyerString = "1000";
+                setFN(1);
+                break;
+            case 'm':
+            case 'M':
+                setFN(2);
+                multiplyerString = "1000000";
+                break;
+            case 'g':
+            case 'G':
+                setFN(3);
+                multiplyerString = "1000000000";
+                break;
+            case 't':
+            case 'T':
+                setFN(3);
+                multiplyerString = "1000000000000";
+                break;
+            default:
+                exitError(1,0,"Unrecognised value %s", size);
+        }
+        size[stringSize-1] = '\0';
+    }
+    else {
+        setFN(0);
+        multiplyerString = "1";
+    }
+    str_to_prime(*target, size);
+    Prime multiplyer;
+    str_to_prime(multiplyer, multiplyerString);
+    prime_mul_prime(*target,*target,multiplyer);
+}
+
+
+
 void parseArgs(int argC, char ** argV) {
     threadCount = 1;
 
-    useStdout = 0;
+    useStdout  = 0;
     singleFile = 0;
-    fileType = FILE_TYPE_TEXT;
+    fileType   = FILE_TYPE_TEXT;
 
-    silent = 0;
+    silent  = 0;
     verbose = 0;
 
 
-    char * startValueString = "0";
-    char * startValueScale = "1";
-    char * endValueString = "1";
-    char * endValueScale = "1000000000";
-    char * chunkSizeString = "1";
-    char * chunkSizeScale = "1000000000";
+    prime_set_num(startValue, 0);
+    prime_set_num(endValue, 0);
+    prime_set_num(chunkSize, 1000000000);
     
 
-    dirName = "";
-    fileName = defaultFileNames[3];
+    dirName      = "";
+    fileName     = defaultFileNames[3];
+    allowClobber = 0;
     initFileName = NULL;
 
     pthread_key_create(&threadNumKey, NULL);
 
     static struct option longOptions[] = {
-            { "start", required_argument, 0, 'o' },
-            { "end", required_argument, 0, 'O' },
-            { "start-thousand", required_argument, 0, 'k' },
-            { "end-thousand", required_argument, 0, 'K' },
-            { "start-million", required_argument, 0, 'm' },
-            { "end-million", required_argument, 0, 'M' },
-            { "start-billion", required_argument, 0, 'g' },
-            { "end-billion", required_argument, 0, 'G' },
-            { "start-trillion", required_argument, 0, 't' },
-            { "end-trillion", required_argument, 0, 'T' },
-            { "chunk-million", required_argument, 0, 'c' },
-            { "chunk-billion", required_argument, 0, 'C' },
-            { "thread-count", required_argument, 0, 'x' },
+            { "start", required_argument, 0, 's' },
+            { "end", required_argument, 0, 'e' },
+            { "chunk-size", required_argument, 0, 'c' },
+            { "threads", required_argument, 0, 'x' },
             { "directory", required_argument, 0, 'd'},
             { "file-name", required_argument, 0, 'n'},
             { "init-file", required_argument, 0, 'i'},
-            { "silent", no_argument, 0, 's' },
             { "quiet", no_argument, 0, 'q' },
             { "verbose", no_argument, 0, 'v' },
             { "single-file", no_argument, 0, 'f' },
@@ -378,30 +451,21 @@ void parseArgs(int argC, char ** argV) {
             { "text-out", no_argument, 0, 'a' },
             { "binary-out", no_argument, 0, 'b' },
             { "compressed-out", no_argument, 0, 'B' },
+            { "clobber", no_argument, 0, 'k'},
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
     };
-    static char * shortOptions = "O:o:K:k:M:m:G:g:T:t:C:c:d:n:i:x:sqvfFpabBh";
+    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhk";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
     opterr = 0;
     while ((givenOption = getopt_long(argC, argV, shortOptions, longOptions, NULL)) != -1) {
         switch (givenOption) {
-        case 'o': startValueString = optarg;  startValueScale = "1";              setFN(0); break;
-        case 'O': endValueString   = optarg;  endValueScale   = "1";              setFN(0); break;
-        case 'k': startValueString = optarg;  startValueScale = "1000";           setFN(1); break;
-        case 'K': endValueString   = optarg;  endValueScale   = "1000";           setFN(1); break;
-        case 'm': startValueString = optarg;  startValueScale = "1000000";        setFN(2); break;
-        case 'M': endValueString   = optarg;  endValueScale   = "1000000";        setFN(2); break;
-        case 'g': startValueString = optarg;  startValueScale = "1000000000";     setFN(3); break;
-        case 'G': endValueString   = optarg;  endValueScale   = "1000000000";     setFN(3); break;
-        case 't': startValueString = optarg;  startValueScale = "1000000000000";  setFN(3); break;
-        case 'T': endValueString   = optarg;  endValueScale   = "1000000000000";  setFN(3); break;
-        case 'c': chunkSizeString  = optarg;  chunkSizeScale  = "1000000";        setFN(2); break;
-        case 'C': chunkSizeString  = optarg;  chunkSizeScale  = "1000000000";     setFN(3); break;
-        case 'q':
-        case 's': silent = 1;                 verbose = 0;        break;
+        case 's': stringToSize(&startValue, optarg);              break;
+        case 'e': stringToSize(&endValue, optarg);                break;
+        case 'c': stringToSize(&chunkSize, optarg);               break;
+        case 'q': silent = 1;                 verbose = 0;        break;
         case 'v': verbose = !silent;                              break;
         case 'f': useStdout = 0;              singleFile = 1;     break;
         case 'F': useStdout = 0;              singleFile = 0;     break;
@@ -413,6 +477,7 @@ void parseArgs(int argC, char ** argV) {
         case 'n': fileName = optarg;                              break;
         case 'i': initFileName = optarg;                          break;
         case 'h': printUsage(argC, argV);     exit(0);            break;
+        case 'k': allowClobber = 1;                               break;
         case 'x': {
             long value;
             char * endptr;
@@ -441,17 +506,6 @@ void parseArgs(int argC, char ** argV) {
         exitError(1 , 0, "invalid option %s", argV[optind]);
     }
 
-    // Set the start and finish values
-    Prime scale;
-    str_to_prime(scale, startValueScale);
-    str_to_prime(startValue, startValueString);
-    prime_mul_prime(startValue, startValue, scale);
-    str_to_prime(scale, endValueScale);
-    str_to_prime(endValue, endValueString);
-    prime_mul_prime(endValue, endValue, scale);
-    str_to_prime(scale, chunkSizeScale);
-    str_to_prime(chunkSize, chunkSizeString);
-    prime_mul_prime(chunkSize, chunkSize, scale);
-
     if (threadCount < 1) exitError(1, 0, "invalid thread-count (%d). Must be 1 or more.", threadCount);
 }
+

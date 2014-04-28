@@ -348,6 +348,7 @@ static void printUsage(int argC, char ** argV) {
             "  -F --multi-file          Write to one file per chunk\n"
             "  -p --use-stdout          Write to the stdout, will not create files\n"
             "  -k --clobber             Allow overwriting of existing files\n"
+			"  -I --create-init-file    Equivalent to -bfs 3 -n init-%%9e9OG.dat\n"
             "\n"
             "General processing options:"
             "  -c --chunk-million       size of chunks to process in millions\n"
@@ -452,10 +453,11 @@ void parseArgs(int argC, char ** argV) {
             { "binary-out", no_argument, 0, 'b' },
             { "compressed-out", no_argument, 0, 'B' },
             { "clobber", no_argument, 0, 'k'},
+			{ "create-init-file", no_argument, 0, 'I'},
             { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
     };
-    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhk";
+    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhkI";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -476,6 +478,10 @@ void parseArgs(int argC, char ** argV) {
         case 'd': dirName  = optarg;                              break;
         case 'n': fileName = optarg;                              break;
         case 'i': initFileName = optarg;                          break;
+		case 'I': fileType = FILE_TYPE_SYSTEM_BINARY; 
+		          useStdout = 0; singleFile = 1; 
+				  prime_set_num(startValue, 3);                   
+				  fileName = "init-%9e9OG.dat";                  break;
         case 'h': printUsage(argC, argV);     exit(0);            break;
         case 'k': allowClobber = 1;                               break;
         case 'x': {

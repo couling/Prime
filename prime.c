@@ -39,7 +39,7 @@ for each time a prime is touched it uses addition and not division.
 
 #define ALLOC_UNIT 0x100000
 #define APPLY_DEBUG_MASK 0xFFFF
-#define SCAN_DEBUG_MASK 0x3FFFF
+#define SCAN_DEBUG_MASK 0x3FFFFF
 
 
 // For threading
@@ -77,6 +77,8 @@ size_t primeCount;                 // Number of primes stored
 size_t primesAllocated;            // Number of primes the array can store
 Prime * primes;                    // The array of primes
 
+// used if an odd start value has been requested
+int disallow2 = 0;
 
 // Maps used to operate on compressed prime bitmasks
 unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
@@ -274,16 +276,16 @@ void initializeFromFile() {
     // This is used as a sort of file signature and helps ensure we're using the correct format.
     Prime comp;
     prime_set_num(comp, 3);
-    if (!prime_eq(primes[0], comp)) {
-        PrimeString s;
-        prime_to_str(s, primes[0]);
-        exitError(1, 0, "primes[0] is not 3 but %s in %s", s, initFileName);
-    }
-    prime_set_num(comp, 5);
     if (!prime_eq(primes[1], comp)) {
         PrimeString s;
         prime_to_str(s, primes[1]);
-        exitError(1, 0, "primes[1] is not 5 but %s in %s", s, initFileName);
+        exitError(1, 0, "primes[1] is not 3 but %s in %s", s, initFileName);
+    }
+    prime_set_num(comp, 5);
+    if (!prime_eq(primes[2], comp)) {
+        PrimeString s;
+        prime_to_str(s, primes[2]);
+        exitError(1, 0, "primes[2] is not 5 but %s in %s", s, initFileName);
     }
 
     // Primes are listed in ascending numerical order and are all odd.
@@ -311,7 +313,6 @@ void initializeFromFile() {
         exitError(1, 0, "Prime initialisation too small. %s is only large enough for primes up to %s", 
             initFileName, s );
     }
-    
 
     if (verbose) stdLog("File checks passed (%s)", initFileName);
 }
@@ -336,7 +337,7 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
     }
     Prime prime_2;
     prime_set_num(prime_2, 2);
-    if (prime_le(from, prime_2) && prime_ge(to, prime_2)) {
+    if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
         fprintf(file, "2\n");
     }
     size_t endRange = range -1;
@@ -386,7 +387,7 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
     }
     Prime prime_2;
     prime_set_num(prime_2, 2);
-    if (prime_le(from, prime_2) && prime_ge(to, prime_2)) {
+    if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
         fwrite(&prime_2, sizeof(Prime), 1, file);
     }
     size_t endRange = range -1;
@@ -399,8 +400,6 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
                 if (bitmap[i] & checkMask[j]) {
                     Prime value;
                     getPrimeFromMap(value, from, i, j);
-                    PrimeString s;
-                    prime_to_str(s, value);
                     fwrite(&value, sizeof(Prime), 1, file);
                 }
             }
@@ -412,8 +411,6 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
             if (bitmap[endRange] & checkMask[j]) {
                 Prime value;
                 getPrimeFromMap(value, from, endRange, j);
-                PrimeString s;
-                prime_to_str(s, value);
                 if (prime_lt(value, endValue)) fwrite(&value, sizeof(Prime), 1, file);
             }
         }
@@ -482,7 +479,14 @@ void process(Prime from, Prime to, FILE * file) {
 
     writePrime(askFrom, to, range, bitmap, file);
 
-    if (verbose) stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", from, to);
+    
+    if (verbose) {
+		PrimeString fromString;
+        prime_to_str(fromString, from);
+        PrimeString toString;
+        prime_to_str(toString, to);	
+		stdLog("All primes have now been discovered between %s (inc) and %s (ex)", fromString, toString);
+	}
 
     free(bitmap);
 }
@@ -538,6 +542,18 @@ void * processAllChunks(void * threadPt) {
 
 void runThreads() {
     threads = mallocSafe(sizeof(struct ThreadDescriptor) * threadCount);
+
+	if (prime_is_odd(startValue)) {
+		// We can only accept even numbers for start values
+		prime_sub_num(startValue, startValue, 1);
+
+		// Here we may accidently bring 2 into scope by making 3 an even number (2).
+		// So we specifically ban it if this has happened
+		// This is the only time we need to "disallow2"
+		Prime z;
+		prime_set_num(z, 2);
+		if (prime_eq(startValue, z)) disallow2 = 1;
+	}
 
     if (threadCount == 1) {
         if (!silent) stdLog("Running single threaded");

@@ -39,9 +39,6 @@ void prime_sqrt(Prime target, Prime in);
 #define prime_le(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) <= 0 )
 #define prime_eq(v1,v2) ( mpn_cmp(v1,v2,PRIME_LIMB_COUNT) == 0 )
 
-#define prime_gt_zero(v1) ( v1 [PRIME_LIMB_COUNT-1] >  0 )
-#define prime_lt_zero(v1) ( v1 [PRIME_LIMB_COUNT-1] <  0 )
-
 #define prime_is_odd(v1)  ( v1 [0] & 1 )
 
 #define prime_cp(target,result) mpn_copyd(target,result,PRIME_LIMB_COUNT)

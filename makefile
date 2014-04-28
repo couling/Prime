@@ -17,7 +17,7 @@ build/prime-64: prime.c prime_64.c prime_shared.c prime_64.h $(basic_depends)
 	gcc $(output_name) $(flags) -DPRIME_ARCH_INT $(c_files)  -lm -lpthread
 
 build/prime-gmp: prime.c primegmp.c prime_shared.c primegmp.h $(basic_depends)
-	gcc $(output_name) $(flags) -DPRIME_ARCH_GMP $(c_files) -lgmp -lpthread
+	gcc $(output_name) $(flags) -DPRIME_ARCH_GMP -DPRIME_SIZE=128 $(c_files) -lgmp -lpthread
 
 build/prime-slow: prime-slow.c prime_64.c prime_shared.c prime_64.h $(basic_depends)
 	gcc $(output_name) $(flags) -DPRIME_ARCH_INT $(c_files) -lm -lpthread

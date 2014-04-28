@@ -10,6 +10,7 @@
 
 // Set up the architecture
 
+
 #ifndef PRIME_SIZE
 	#define PRIME_SIZE 64
 #endif

@@ -36,9 +36,6 @@ void prime_to_str(char * target, Prime value);
 #define prime_le(v1,v2) ( v1 <= v2 )
 #define prime_eq(v1,v2) ( v1 == v2 )
 
-#define prime_gt_zero(v1) ( v1 > 0 )
-#define prime_lt_zero(v1) ( v1 < 0 )
-
 #define prime_is_odd(v1)  ( v1 & 1 )
 
 #define prime_cp(target,result) ( target = result )

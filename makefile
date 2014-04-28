@@ -2,10 +2,12 @@ flags= -std=c99 -O3 -s
 c_files= $(filter %.c, $^)
 output_name= -o $@
 basic_depends= prime_shared.h makefile | build
-required_files:=`awk -F':' '/^[ \t]*file:/ { print $2 }' manifest`
-arch:=`cat arch`
-version:=`cat version`
-package:=`awk '/^Package:/ { print $2 }' control`_${version}_${arch}.deb
+
+gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
+arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter x86,${gcc_arch}}}
+version:=${shell cat version}
+package:=build/${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
+required_files:=${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}
 
 all: ${required_files}
 
@@ -23,7 +25,7 @@ build/prime-slow: prime-slow.c prime_64.c prime_shared.c prime_64.h $(basic_depe
 build/prime.1.gz: prime.1
 	gzip -9c prime.1 > build/prime.1.gz 
 
-build/control: control arch version
+build/control: control version | build
 	cp control build/control
 	echo Architecture: ${arch} >> build/control
 	echo Version: ${version} >> build/control
@@ -31,18 +33,18 @@ build/control: control arch version
 ${package}: ${required_files} manifest makefile
 	package-project . manifest build
 
+
+install: ${package}
+	sudo dpkg --install ${package}
+
 clean:
 	rm -rf build
 
 
-dirs: build lib
-
-.PHONY :  dirs clean all package
-
-build lib:
+build:
 	mkdir $@
 
-cls:
-	cls
+
+.PHONY:  dirs clean all package install
 
 

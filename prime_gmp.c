@@ -35,7 +35,7 @@ void str_to_prime(Prime prime, char * s) {
     mp_size_t writtenSize = mpn_set_str(prime, inBuffer, sSize, 10);
     while (writtenSize < PRIME_LIMB_COUNT) {
         prime[writtenSize] = 0;
-	++writtenSize;
+    ++writtenSize;
     }
 }
 
@@ -51,7 +51,7 @@ void prime_set_num(Prime prime, mp_limb_t in) {
 void prime_add_num(Prime target, Prime in1, mp_limb_t in2) {
     Prime tmp;
     mpn_add_1(tmp, in1, PRIME_LIMB_COUNT, in2);
-	mpn_copyd(target, tmp, PRIME_LIMB_COUNT);
+    mpn_copyd(target, tmp, PRIME_LIMB_COUNT);
 }
 
 
@@ -59,7 +59,7 @@ void prime_add_num(Prime target, Prime in1, mp_limb_t in2) {
 void prime_add_prime(Prime target, Prime in1, Prime in2) {
     Prime tmp;
     mpn_add_n(tmp, in1, in2, PRIME_LIMB_COUNT);
-	mpn_copyd(target, tmp, PRIME_LIMB_COUNT);
+    mpn_copyd(target, tmp, PRIME_LIMB_COUNT);
 }
 
 

@@ -36,7 +36,7 @@
 #if PRIME_ARCH_INT
 	#include "prime_64.h"
 #elif PRIME_ARCH_GMP
-	#include "primegmp.h"
+	#include "prime_gmp.h"
 #else
 	#error PRIME_ARCH is invalid
 #endif

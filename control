@@ -5,6 +5,5 @@ Depends: libc6 (>= 2.14), libgmp10 (>= 5.1.2)
 Suggests: 
 Conflicts:
 Replaces:
-Installed-Size: 100
 Maintainer: Philip Couling <couling@gmail.org>
 Description: Prime number generator designed to scan for small primes very quckly.

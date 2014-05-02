@@ -425,7 +425,7 @@ void parseArgs(int argC, char ** argV) {
 
 
     prime_set_num(startValue, 0);
-    prime_set_num(endValue, 0);
+    prime_set_num(endValue, 1000000000);
     prime_set_num(chunkSize, 1000000000);
     
 

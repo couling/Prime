@@ -7,7 +7,7 @@ gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
 arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter x86,${gcc_arch}}}
 version:=${shell cat version}
 package:=build/${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
-required_files:=${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}
+required_files:=${filter-out build/control,${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}}
 
 all: ${required_files}
 
@@ -25,14 +25,13 @@ build/prime-slow: prime-slow.c prime_64.c prime_shared.c prime_64.h $(basic_depe
 build/prime.1.gz: prime.1
 	gzip -9c prime.1 > build/prime.1.gz 
 
-build/control: control version ${filter-out build/control,${required_files}} | build
+build/control: control version ${required_files} | build
 	cp control build/control
 	echo Architecture: ${arch} >> build/control
 	echo Version: ${version} >> build/control
 	echo Installed-Size: ${shell ls -l ${required_files} | awk 'BEGIN {x=0} {x=x+$$5} END {print int((x+1023)/1024)}'} >> build/control
-	echo ${filter-out $@,${required_files}}
 
-${package}: ${required_files} manifest control version makefile 
+${package}: ${required_files} manifest build/control version 
 	package-project . manifest build
 
 

@@ -38,7 +38,7 @@ for each time a prime is touched it uses addition and not division.
 //#define VERBOSE_DEBUG
 
 #define ALLOC_UNIT 0x100000
-#define APPLY_DEBUG_MASK 0xFFFF
+size_t APPLY_DEBUG_MASK; // This used to be a constand, but now we use a variable set in main
 #define SCAN_DEBUG_MASK 0x3FFFFF
 
 
@@ -159,10 +159,15 @@ static void initializeSelf() {
     }
 
     // Allocate a bitmap to represent 0 to sqrt(endValue)
-    primesAllocated = ALLOC_UNIT;
+	primesAllocated = ALLOC_UNIT;
     primes = mallocSafe(primesAllocated * sizeof(Prime));
     Prime maxRequired;
     prime_sqrt(maxRequired, endValue);
+	if (verbose) {
+	    PrimeString maxRequiredString;
+		prime_to_str(maxRequiredString, maxRequired);
+	    stdLog("Initialisation will produce every prime up to %s", maxRequiredString);
+	}
     Prime pRange;
     prime_add_num(pRange, maxRequired, 15);
     prime_div_16(pRange, pRange);
@@ -170,8 +175,8 @@ static void initializeSelf() {
     if (verbose) stdLog("Bitmap will contain %zd bytes", range);
     unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
     memset(bitmap, 0xFF, range);
-
-    // Evaluate all primes up to sqrt(sqrt(endValue))
+    
+	// Evaluate all primes up to sqrt(sqrt(endValue))
     // Each prime found here needs to be applied to the map
     Prime zero;
     prime_set_num(zero, 0);
@@ -179,7 +184,6 @@ static void initializeSelf() {
     prime_add_num(pRange, maxRequired, 15);
     prime_div_16(pRange, pRange);
     size_t endRange = prime_get_num(pRange);
-    
     // The first byte is tricky so we hard code primes less than 16
     // We never represent 2 as prime (we never use even numbers)
     prime_set_num(primes[0], 3);
@@ -193,7 +197,6 @@ static void initializeSelf() {
     prime_set_num(primes[4], 13);
     applyPrime(primes[4], zero, bitmap, range);
     primeCount = 5;
-    
     size_t i = 1;
     while (i <= endRange) {
         if (verbose && !(i & SCAN_DEBUG_MASK)) 
@@ -276,20 +279,22 @@ void initializeFromFile() {
     // This is used as a sort of file signature and helps ensure we're using the correct format.
     Prime comp;
     prime_set_num(comp, 3);
+    if (!prime_eq(primes[0], comp)) {
+        PrimeString s;
+        prime_to_str(s, primes[0]);
+        exitError(1, 0, "First prime is not 3 but %s in %s", s, initFileName);
+    }
+	else if (verbose) stdLog("First prime is 3");
+    prime_set_num(comp, 5);
     if (!prime_eq(primes[1], comp)) {
         PrimeString s;
         prime_to_str(s, primes[1]);
-        exitError(1, 0, "primes[1] is not 3 but %s in %s", s, initFileName);
+        exitError(1, 0, "Second prime is not 5 but %s in %s", s, initFileName);
     }
-    prime_set_num(comp, 5);
-    if (!prime_eq(primes[2], comp)) {
-        PrimeString s;
-        prime_to_str(s, primes[2]);
-        exitError(1, 0, "primes[2] is not 5 but %s in %s", s, initFileName);
-    }
+	else if (verbose) stdLog("Second prime is 5");
 
     // Primes are listed in ascending numerical order and are all odd.
-    for (size_t i = 1; i < primeCount; ++i) {
+    for (size_t i = 1; i < primeCount && primeCount == primesAllocated; ++i) {
         if (prime_lt(primes[i], primes[i-1])) {
             PrimeString p1, p2;
             prime_to_str(p1, primes[i]);
@@ -302,19 +307,29 @@ void initializeFromFile() {
             prime_to_str(s, primes[i]);
             exitError(1, 0, "primes[%zd] (%s) is even in %s", i, s, initFileName);
         }
+		Prime sqr;
+		prime_mul_prime(sqr,primes[i],primes[i]);
+		if (prime_gt(sqr,endValue)) primeCount = i; //(that's i -1<for the largest needed> +1 <for indexing from 0>)
     }
+	if (verbose) stdLog("All (useful) primes are odd and in sequence");
 
     // The file reaches a high enough prime for the task in hand ie: sqrt(endValue)
     Prime maxValue;
-    prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
-    if (prime_lt(maxValue, endValue)) {
+	prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
+    if (primeCount == primesAllocated) {
+	    Prime maxValue;
+		prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
         PrimeString s;
         prime_to_str(s, maxValue);
         exitError(1, 0, "Prime initialisation too small. %s is only large enough for primes up to %s", 
             initFileName, s );
     }
+	else if (verbose) stdLog("Largest prime is larger than sqrt(endValue)");
 
-    if (verbose) stdLog("File checks passed (%s)", initFileName);
+    if (verbose) {
+		stdLog("Checks passed (%s)", initFileName);
+		stdLog("File contains %zu primes of which %zu will be used", primesAllocated, primeCount);
+	}
 }
 
 
@@ -503,6 +518,7 @@ void * processAllChunks(void * threadPt) {
     prime_mod_prime(to, startValue, chunkSize);
     prime_sub_prime(to, startValue, to);
     prime_add_prime(to, to, chunkSize);
+
     int chunkNum = 0;
     while (prime_lt(to, endValue)) {
         if (chunkNum % threadCount == (thread->threadNum - 1)) {
@@ -621,17 +637,34 @@ int main(int argC, char ** argV) {
             break;
     }
 
+
+  	if (singleFile) {
+    	if (useStdout) theSingleFile = stdout;
+		else theSingleFile = openFileForPrime(startValue, endValue);
+	}
+
+	// Initialise the primes array
     if (initFileName) initializeFromFile();
     else initializeSelf();
-    
-    if (singleFile) {
-        if (useStdout) theSingleFile = stdout;
-        else theSingleFile = openFileForPrime(startValue, endValue);
-    }
 
-    // This line kicks off the processing
+	// Set the debug mask, this is used for verbose priting
+	if (verbose) {
+		size_t tmp = primeCount;
+		APPLY_DEBUG_MASK = 0xF;
+		while (tmp & 0xFFFFF000) {
+			tmp >>= 8;
+			APPLY_DEBUG_MASK = (APPLY_DEBUG_MASK << 8) | 0xFF;
+		}
+	}
+
+    // Process everything
     runThreads();
 
+	// Free the primes array
+    if (initFileName) finalFile();
+    else finalSelf();
+
+	// Close the file (this can take some time if it has been cached by the os)
     if (singleFile) {
         // This will close stdout if useStdOut was selected.
         if (fclose(theSingleFile)) {
@@ -639,9 +672,6 @@ int main(int argC, char ** argV) {
         }
     }
     
-    if (initFileName) finalFile(); 
-    else finalSelf();
-
     return 0;
 }
 

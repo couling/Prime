@@ -159,15 +159,15 @@ static void initializeSelf() {
     }
 
     // Allocate a bitmap to represent 0 to sqrt(endValue)
-	primesAllocated = ALLOC_UNIT;
+    primesAllocated = ALLOC_UNIT;
     primes = mallocSafe(primesAllocated * sizeof(Prime));
     Prime maxRequired;
     prime_sqrt(maxRequired, endValue);
-	if (verbose) {
-	    PrimeString maxRequiredString;
-		prime_to_str(maxRequiredString, maxRequired);
-	    stdLog("Initialisation will produce every prime up to %s", maxRequiredString);
-	}
+    if (verbose) {
+        PrimeString maxRequiredString;
+        prime_to_str(maxRequiredString, maxRequired);
+        stdLog("Initialisation will produce every prime up to %s", maxRequiredString);
+    }
     Prime pRange;
     prime_add_num(pRange, maxRequired, 15);
     prime_div_16(pRange, pRange);
@@ -176,7 +176,7 @@ static void initializeSelf() {
     unsigned char * bitmap = mallocSafe(range * sizeof(unsigned char));
     memset(bitmap, 0xFF, range);
     
-	// Evaluate all primes up to sqrt(sqrt(endValue))
+    // Evaluate all primes up to sqrt(sqrt(endValue))
     // Each prime found here needs to be applied to the map
     Prime zero;
     prime_set_num(zero, 0);
@@ -284,52 +284,62 @@ void initializeFromFile() {
         prime_to_str(s, primes[0]);
         exitError(1, 0, "First prime is not 3 but %s in %s", s, initFileName);
     }
-	else if (verbose) stdLog("First prime is 3");
+    else if (verbose) stdLog("First prime is 3");
     prime_set_num(comp, 5);
     if (!prime_eq(primes[1], comp)) {
         PrimeString s;
         prime_to_str(s, primes[1]);
         exitError(1, 0, "Second prime is not 5 but %s in %s", s, initFileName);
     }
-	else if (verbose) stdLog("Second prime is 5");
+    else if (verbose) stdLog("Second prime is 5");
 
     // Primes are listed in ascending numerical order and are all odd.
-    for (size_t i = 1; i < primeCount && primeCount == primesAllocated; ++i) {
-        if (prime_lt(primes[i], primes[i-1])) {
+    size_t lowI = 0, highI = primesAllocated -1;
+    while (lowI < highI) {
+        size_t i = (lowI + highI) / 2;
+        if (prime_gt(primes[i], primes[highI])) {
             PrimeString p1, p2;
             prime_to_str(p1, primes[i]);
-            prime_to_str(p2, primes[i-1]);
+            prime_to_str(p2, primes[highI]);
             exitError(1, 0, "primes[%zd] (%s) is out of sequence with primes[%zd] (%s) in %s", 
-                i, p1, i-1, p2, initFileName);
+                i, p1, highI, p2, initFileName);
+        }
+        if (prime_lt(primes[i], primes[lowI])) {
+            PrimeString p1, p2;
+            prime_to_str(p1, primes[i]);
+            prime_to_str(p2, primes[lowI]);
+            exitError(1, 0, "primes[%zd] (%s) is out of sequence with primes[%zd] (%s) in %s", 
+                i, p1, lowI, p2, initFileName);
         }
         if (!(prime_is_odd(primes[i]))) {
             PrimeString s;
             prime_to_str(s, primes[i]);
             exitError(1, 0, "primes[%zd] (%s) is even in %s", i, s, initFileName);
         }
-		Prime sqr;
-		prime_mul_prime(sqr,primes[i],primes[i]);
-		if (prime_gt(sqr,endValue)) primeCount = i; //(that's i -1<for the largest needed> +1 <for indexing from 0>)
+        Prime sqr;
+        prime_mul_prime(sqr,primes[i],primes[i]);
+        if (prime_lt(sqr,endValue)) lowI = i;
+        else if (prime_gt(sqr,endValue)) highI = i;
+        else highI = lowI = i;
     }
-	if (verbose) stdLog("All (useful) primes are odd and in sequence");
+    primeCount = lowI+1;
+    if (verbose) stdLog("All (useful) primes are odd and in sequence");
 
     // The file reaches a high enough prime for the task in hand ie: sqrt(endValue)
     Prime maxValue;
-	prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
-    if (primeCount == primesAllocated) {
-	    Prime maxValue;
-		prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
+    prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
+    if (prime_lt(maxValue, endValue)) {
         PrimeString s;
         prime_to_str(s, maxValue);
         exitError(1, 0, "Prime initialisation too small. %s is only large enough for primes up to %s", 
             initFileName, s );
     }
-	else if (verbose) stdLog("Largest prime is larger than sqrt(endValue)");
+    else if (verbose) stdLog("Largest prime is larger than sqrt(endValue)");
 
     if (verbose) {
-		stdLog("Checks passed (%s)", initFileName);
-		stdLog("File contains %zu primes of which %zu will be used", primesAllocated, primeCount);
-	}
+        stdLog("Checks passed (%s)", initFileName);
+        stdLog("File contains %zu primes of which %zu will be used", primesAllocated, primeCount);
+    }
 }
 
 
@@ -496,12 +506,12 @@ void process(Prime from, Prime to, FILE * file) {
 
     
     if (verbose) {
-		PrimeString fromString;
+        PrimeString fromString;
         prime_to_str(fromString, from);
         PrimeString toString;
         prime_to_str(toString, to);	
-		stdLog("All primes have now been discovered between %s (inc) and %s (ex)", fromString, toString);
-	}
+        stdLog("All primes have now been discovered between %s (inc) and %s (ex)", fromString, toString);
+    }
 
     free(bitmap);
 }
@@ -559,17 +569,17 @@ void * processAllChunks(void * threadPt) {
 void runThreads() {
     threads = mallocSafe(sizeof(struct ThreadDescriptor) * threadCount);
 
-	if (prime_is_odd(startValue)) {
-		// We can only accept even numbers for start values
-		prime_sub_num(startValue, startValue, 1);
+    if (prime_is_odd(startValue)) {
+        // We can only accept even numbers for start values
+        prime_sub_num(startValue, startValue, 1);
 
-		// Here we may accidently bring 2 into scope by making 3 an even number (2).
-		// So we specifically ban it if this has happened
-		// This is the only time we need to "disallow2"
-		Prime z;
-		prime_set_num(z, 2);
-		if (prime_eq(startValue, z)) disallow2 = 1;
-	}
+        // Here we may accidently bring 2 into scope by making 3 an even number (2).
+        // So we specifically ban it if this has happened
+        // This is the only time we need to "disallow2"
+        Prime z;
+        prime_set_num(z, 2);
+        if (prime_eq(startValue, z)) disallow2 = 1;
+    }
 
     if (threadCount == 1) {
         if (!silent) stdLog("Running single threaded");
@@ -638,33 +648,33 @@ int main(int argC, char ** argV) {
     }
 
 
-  	if (singleFile) {
-    	if (useStdout) theSingleFile = stdout;
-		else theSingleFile = openFileForPrime(startValue, endValue);
-	}
+    if (singleFile) {
+        if (useStdout) theSingleFile = stdout;
+        else theSingleFile = openFileForPrime(startValue, endValue);
+    }
 
-	// Initialise the primes array
+    // Initialise the primes array
     if (initFileName) initializeFromFile();
     else initializeSelf();
 
-	// Set the debug mask, this is used for verbose priting
-	if (verbose) {
-		size_t tmp = primeCount;
-		APPLY_DEBUG_MASK = 0xF;
-		while (tmp & 0xFFFFF000) {
-			tmp >>= 8;
-			APPLY_DEBUG_MASK = (APPLY_DEBUG_MASK << 8) | 0xFF;
-		}
-	}
+    // Set the debug mask, this is used for verbose priting
+    if (verbose) {
+        size_t tmp = primeCount;
+        APPLY_DEBUG_MASK = 0xF;
+        while (tmp & 0xFFFFF000) {
+            tmp >>= 8;
+            APPLY_DEBUG_MASK = (APPLY_DEBUG_MASK << 8) | 0xFF;
+        }
+    }
 
     // Process everything
     runThreads();
 
-	// Free the primes array
+    // Free the primes array
     if (initFileName) finalFile();
     else finalSelf();
 
-	// Close the file (this can take some time if it has been cached by the os)
+    // Close the file (this can take some time if it has been cached by the os)
     if (singleFile) {
         // This will close stdout if useStdOut was selected.
         if (fclose(theSingleFile)) {

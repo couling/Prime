@@ -12,35 +12,42 @@
 
 
 #ifndef PRIME_SIZE
-	#define PRIME_SIZE 64
+    #define PRIME_SIZE 64
 #endif
 
 #if PRIME_SIZE == 32
-	#define PRIME_STRING_SIZE 11
+    #define PRIME_STRING_SIZE 11
 #elif PRIME_SIZE == 64
-	#define PRIME_STRING_SIZE 21
+    #define PRIME_STRING_SIZE 21
 #elif PRIME_SIZE == 96
-	#define PRIME_STRING_SIZE 30
+    #define PRIME_STRING_SIZE 30
 #elif PRIME_SIZE == 128
-	#define PRIME_STRING_SIZE 40
+    #define PRIME_STRING_SIZE 40
 #else
     #error PRIME_SIZE is invalid
 #endif
 
 
 #if ! defined PRIME_ARCH_INT && ! defined PRIME_ARCH_GMP
-	#error PRIME_ARCH_ not set
+    #error PRIME_ARCH_ not set
 #endif
 
 
 #if PRIME_ARCH_INT
-	#include "prime_64.h"
+    #include "prime_64.h"
 #elif PRIME_ARCH_GMP
-	#include "prime_gmp.h"
+    #include "prime_gmp.h"
 #else
-	#error PRIME_ARCH is invalid
+    #error PRIME_ARCH is invalid
 #endif
 
+#ifndef PRIME_PROGRAM_NAME
+    #define PRIME_PROGRAM_NAME prime
+#endif
+
+#ifndef PRIME_PROGRAM_VERSION
+    #define PRIME_PROGRAM_VERSION Unknown
+#endif
 
 typedef char PrimeString[PRIME_STRING_SIZE];
 

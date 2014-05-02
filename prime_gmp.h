@@ -3,6 +3,8 @@
 
 #include <gmp.h>
 
+#define PRIME_ARCHITECTURE GMP
+
 // gmp
 #define PRIME_LIMB_COUNT ( PRIME_SIZE / sizeof(mp_limb_t) / 8 )
 typedef mp_limb_t Prime[PRIME_LIMB_COUNT];

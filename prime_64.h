@@ -1,6 +1,8 @@
 #ifndef prime_long_long_h
 #define prime_long_long_h
 
+#define PRIME_ARCHITECTURE Long Long Int
+
 typedef long long Prime;
 
 #define prime_set_num(target, value) target = value

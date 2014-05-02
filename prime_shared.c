@@ -40,9 +40,9 @@ pthread_key_t threadNumKey;
 
 static char * defaultFileNames [] = {
     "prime.%18e0o-%18e0O.txt",
-    "prime.%15e3ok-%15e3OK.txt",
-    "prime.%12e6om-%12e6OM.txt",
-    "prime.%9e9og-%9e9OG.txt"
+    "prime.%15e3oK-%15e3OK.txt",
+    "prime.%12e6oM-%12e6OM.txt",
+    "prime.%9e9oG-%9e9OG.txt"
 };
 
 
@@ -318,6 +318,15 @@ static void setFN(int level) {
     if (level < i) fileName = defaultFileNames[level];
 }
 
+#define QUOTE(name) #name
+#define STR_VALUE(arg) QUOTE(arg)
+static void printVersion() {
+    fprintf(stderr, 
+    STR_VALUE(PRIME_PROGRAM_NAME) " (" STR_VALUE(PRIME_PROGRAM_VERSION) ")"
+    "\nCopyright (C) 2013 Philip Couling"
+    "\nArchitechture: " STR_VALUE(PRIME_ARCHITECTURE)
+    "\nPrime size: %zd bit\n", sizeof(Prime) * 8);
+}
 
 
 static void printUsage(int argC, char ** argV) {
@@ -343,12 +352,12 @@ static void printUsage(int argC, char ** argV) {
             "  -d --directory           Specify the output directory, will be ignored if file name\n"
             "                           starts with /\n"
             "  -n --file-name           Specify the file name as a pattern\n"
-            "                           Eg: prime.%%9x9og-%%9x9OG.txt\n"
+            "                           Eg: prime.%%9x9oG-%%9x9OG.txt\n"
             "  -f --single-file         Write to a new file\n"
             "  -F --multi-file          Write to one file per chunk\n"
             "  -p --use-stdout          Write to the stdout, will not create files\n"
             "  -k --clobber             Allow overwriting of existing files\n"
-			"  -I --create-init-file    Equivalent to -bfs 3 -n init-%%9e9OG.dat\n"
+            "  -I --create-init-file    Equivalent to -bfs 3 -n init-%%9e9OG.dat\n"
             "\n"
             "General processing options:"
             "  -c --chunk-million       size of chunks to process in millions\n"
@@ -363,7 +372,8 @@ static void printUsage(int argC, char ** argV) {
             "  -v --verbose              Verbose output, meaningless with -s or -q\n"
             "\n"
             "Other:\n"
-            "  -h --help                 Show this help\n", argV[0]);
+            "  -h --help                 Show this help and exit\n"
+            "  -V --version              Print the program version and exit\n", argV[0]);
 }
 
 
@@ -453,11 +463,12 @@ void parseArgs(int argC, char ** argV) {
             { "binary-out", no_argument, 0, 'b' },
             { "compressed-out", no_argument, 0, 'B' },
             { "clobber", no_argument, 0, 'k'},
-			{ "create-init-file", no_argument, 0, 'I'},
+            { "create-init-file", no_argument, 0, 'I'},
             { "help", no_argument, 0, 'h' },
+            { "version", no_argument, 0, 'V'},
             { 0, 0, 0, 0 }
     };
-    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhkI";
+    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhkIV";
 
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -478,11 +489,12 @@ void parseArgs(int argC, char ** argV) {
         case 'd': dirName  = optarg;                              break;
         case 'n': fileName = optarg;                              break;
         case 'i': initFileName = optarg;                          break;
-		case 'I': fileType = FILE_TYPE_SYSTEM_BINARY; 
-		          useStdout = 0; singleFile = 1; 
-				  prime_set_num(startValue, 3);                   
-				  fileName = "init-%9e9OG.dat";                  break;
+        case 'I': fileType = FILE_TYPE_SYSTEM_BINARY; 
+                  useStdout = 0; singleFile = 1; 
+                  prime_set_num(startValue, 3);                   
+                  fileName = "init-%9e9OG.dat";                   break;
         case 'h': printUsage(argC, argV);     exit(0);            break;
+        case 'V': printVersion();             exit(0);            break;
         case 'k': allowClobber = 1;                               break;
         case 'x': {
             long value;

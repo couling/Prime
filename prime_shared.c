@@ -320,6 +320,19 @@ static void setFN(int level) {
 
 #define QUOTE(name) #name
 #define STR_VALUE(arg) QUOTE(arg)
+char * getVersion() {
+    static char buffer[192];
+    int x = snprintf(buffer, 192,
+    STR_VALUE(PRIME_PROGRAM_NAME) " (" STR_VALUE(PRIME_PROGRAM_VERSION) ")"
+    "\nCopyright (C) 2013 Philip Couling"
+    "\nArchitechture: " STR_VALUE(PRIME_ARCHITECTURE)
+    "\nPrime size: %zd bit"
+    "\nBuilt: " __DATE__ " " __TIME__ "\n", sizeof(Prime) * 8);
+    stdLog("%d", x);
+    return buffer;
+}
+
+
 static void printVersion() {
     fprintf(stderr, 
     STR_VALUE(PRIME_PROGRAM_NAME) " (" STR_VALUE(PRIME_PROGRAM_VERSION) ")"
@@ -493,8 +506,8 @@ void parseArgs(int argC, char ** argV) {
                   useStdout = 0; singleFile = 1; 
                   prime_set_num(startValue, 3);                   
                   fileName = "init-%9e9OG.dat";                   break;
-        case 'h': printUsage(argC, argV);     exit(0);            break;
-        case 'V': printVersion();             exit(0);            break;
+        case 'h': printUsage(argC, argV);              exit(0);   break;
+        case 'V': fprintf(stderr, "%s", getVersion()); exit(0);   break;
         case 'k': allowClobber = 1;                               break;
         case 'x': {
             long value;

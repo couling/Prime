@@ -76,7 +76,7 @@ extern int verbose;
 
 void stdLog(char * str, ...);
 void exitError(int num, int errorNumber, char * str, ...);
-void logError(int num, int errorNumber, char * str, ...);
+void logWarning(int num, int errorNumber, char * str, ...);
 
 void * mallocSafe(size_t bytes);
 void * reallocSafe(void * existing, size_t bytes);
@@ -87,5 +87,5 @@ void mkdirs(char * formattedFileName);
 FILE * openFileForPrime(Prime from, Prime to);
 
 void parseArgs(int argC, char ** argV);
-
+char * getVersion();
 #endif // prime_shared_h

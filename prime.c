@@ -51,38 +51,49 @@ typedef struct ThreadDescriptor {
 } ThreadDescriptor;
 
 
-ThreadDescriptor * threads;
+static ThreadDescriptor * threads;
 
 
 // For file based initialisation
-int initFileHandle;
-off_t initFileSize;
+static int initFileHandle;
+static off_t initFileSize;
 
 
 //  Functions for writing primes
 typedef void (* WritePrimeFunction)(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
-void writePrimeText(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
-void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
-void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
+static void writePrimeText(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
+static void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
+static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
 
-WritePrimeFunction writePrime = writePrimeText;
+static WritePrimeFunction writePrime = writePrimeText;
+
+// Header for compressed binary
+typedef struct {
+    char headerSize[4];
+    char signature[60];
+    char blockSize[64];
+    char from[64];
+    char to[64];
+    char skip[64];
+    char comments[192];
+} __attribute__ ((packed)) CompressedBinaryHeader;
 
 // The single file to write to (if single file is enabled);
-FILE * theSingleFile;
+static FILE * theSingleFile;
 
 
 // All primes less than or sqrt(endValue)
 // Generating these is what initialisation is for
-size_t primeCount;                 // Number of primes stored
-size_t primesAllocated;            // Number of primes the array can store
-Prime * primes;                    // The array of primes
+static size_t primeCount;                 // Number of primes stored
+static size_t primesAllocated;            // Number of primes the array can store
+static Prime * primes;                    // The array of primes
 
 // used if an odd start value has been requested
-int disallow2 = 0;
+static int disallow2 = 0;
 
 // Maps used to operate on compressed prime bitmasks
-unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
-unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
+static unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
+static unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
 
 static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) {
     // An optomisatin can be made here by splitting this function into two.
@@ -240,13 +251,13 @@ static void initializeSelf() {
 
 
 
-void finalSelf() {
+static void finalSelf() {
     free(primes);
 }
 
 
 
-void initializeFromFile() {
+static void initializeFromFile() {
     if (!silent) stdLog("Initializing from file (%s)", initFileName);
 
     // Open the file
@@ -345,7 +356,7 @@ void initializeFromFile() {
 
 
 
-void finalFile() {
+static void finalFile() {
     // Unmap the file and close the handle
     if ( munmap( primes, initFileSize) ) exitError(1, errno, "failed to unmap file %s", initFileName);
     if ( close(initFileHandle) )  exitError(1, errno, "failed to close file %s", initFileName);
@@ -354,7 +365,7 @@ void finalFile() {
 
 
 
-void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
+static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
     int threadNum;
     if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
@@ -404,7 +415,7 @@ void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, 
 
 
 
-void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
+static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
     int threadNum;
     if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
@@ -447,13 +458,31 @@ void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * 
 
 
 
-
-void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file ) {
+static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file ) {
+    int threadNum;
+    if (singleFile && threadCount > 1) {
+        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
+        sem_wait(&threads[threadNum].writeSemaphore);
+    }
+    CompressedBinaryHeader header;
+    memset(&header, 0, sizeof(CompressedBinaryHeader));
+    snprintf(header.headerSize, 4, "%zd", sizeof(CompressedBinaryHeader));
+    snprintf(header.signature, 60, "Compressed Prime Binary 1.0");
+    snprintf(header.blockSize, 64, "%zd", range);
+    prime_to_str(header.from, startValue);
+    prime_to_str(header.to, endValue);
+    snprintf(header.skip, 64, "2", range);
+    snprintf(header.comments, 192, "Created by...\n%s", getVersion());
+    fwrite(&header, sizeof(CompressedBinaryHeader), 1, file);
+    fwrite(bitmap, sizeof(unsigned char), range, file);
+    if (singleFile && threadCount > 1) {
+        sem_post(threads[threadNum].nextThreadWriteSemaphore);
+    }
 }
 
 
 
-void process(Prime from, Prime to, FILE * file) {
+static void process(Prime from, Prime to, FILE * file) {
     Prime tmp;
 
     if (verbose) {
@@ -518,7 +547,7 @@ void process(Prime from, Prime to, FILE * file) {
 
 
 
-void * processAllChunks(void * threadPt) {
+static void * processAllChunks(void * threadPt) {
     ThreadDescriptor * thread = (ThreadDescriptor*) threadPt;
     pthread_setspecific(threadNumKey, &thread->threadNum);
     if (!silent) stdLog("Thread %d started", thread->threadNum);

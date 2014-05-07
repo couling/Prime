@@ -1,11 +1,11 @@
 flags= -std=c99 -O3 -s
 c_files= $(filter %.c, $^)
 output_name= -o $@
-basic_depends= prime_shared.h makefile | build
+basic_depends= prime_shared.h makefile version | build
 
 gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
 arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter x86,${gcc_arch}}}
-version:=${shell cat version}
+version:=${shell cat version}r${shell svn info | awk '/Revision:/ {print $$2}'}
 package:=build/${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
 required_files:=${filter-out build/control,${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}}
 

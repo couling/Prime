@@ -1,4 +1,5 @@
 Package: couling-prime
+Version: 1.1
 Section: devel
 Priority: optional
 Depends: libc6 (>= 2.14), libgmp10 (>= 5.1.2)

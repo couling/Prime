@@ -1,17 +1,17 @@
 flags= -std=c99 -O3 -s
 c_files= $(filter %.c, $^)
 output_name= -o $@
-basic_depends= prime_shared.h makefile version | build
+basic_depends= prime_shared.h makefile | build
 
 gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
 arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter x86,${gcc_arch}}}
-version:=${shell cat version}r${shell svn info | awk '/Revision:/ {print $$2}'}
-package:=build/${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
+version:=${shell awk '/^Version:/ {print $$2}' control}r${shell svn info | awk '/Revision:/ {print $$2}'}
+package:=${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
 required_files:=${filter-out build/control,${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}}
 
 all: ${required_files}
 
-package: ${package}
+package: build/${package}
 
 build/prime-64: prime.c prime_64.c prime_shared.c prime_64.h $(basic_depends)
 	gcc $(output_name) $(flags) -DPRIME_ARCH_INT -DPRIME_PROGRAM_NAME=prime-64 -DPRIME_PROGRAM_VERSION="${version} ${arch}"  $(c_files)  -lm -lpthread
@@ -25,18 +25,16 @@ build/prime-slow: prime-slow.c prime_64.c prime_shared.c prime_64.h $(basic_depe
 build/prime.1.gz: prime.1
 	gzip -9c prime.1 > build/prime.1.gz 
 
-build/control: control version ${required_files} | build
+build/control: control | build
 	cp control build/control
 	echo Architecture: ${arch} >> build/control
-	echo Version: ${version} >> build/control
-	echo Installed-Size: ${shell ls -l ${required_files} | awk 'BEGIN {x=0} {x=x+$$5} END {print int((x+1023)/1024)}'} >> build/control
 
-${package}: ${required_files} manifest build/control version 
-	package-project . manifest build
+build/${package}: ${required_files} manifest build/control
+	package-project manifest
+	mv ${package} build/${package}
 
-
-install: ${package}
-	sudo dpkg --install ${package}
+push: build/${package}
+	package-push build/${package}
 
 clean:
 	rm -rf build
@@ -46,6 +44,6 @@ build:
 	mkdir $@
 
 
-.PHONY:  dirs clean all package install
+.PHONY:  dirs clean all package push
 
 

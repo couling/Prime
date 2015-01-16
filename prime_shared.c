@@ -92,7 +92,7 @@ void exitError(int num, int errorNumber, char * str, ...) {
 
 
 
-void logWarning(int num, int errorNumber, char * str, ...) {
+void logWarning(int errorNumber, char * str, ...) {
     int * threadNumPt = pthread_getspecific(threadNumKey);
     int threadNum = threadNumPt ? *threadNumPt : 0;
     flockfile(stderr);

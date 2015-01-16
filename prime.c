@@ -68,17 +68,21 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
 static WritePrimeFunction writePrime = writePrimeText;
 
 // Header for compressed binary
-typedef struct {
-    char headerSize[32];
-	char signature[32];
-    char dataBlockSize[32];
-	char skip[32];
-	char fromToSize[32];
-	char textSize[32];
-	char primeCount[32];
-	char comments[288];
-    char from[256];
-    char to[256];
+typedef struct {            // All header fields are text (UTF-8) NOT binary
+    char signature[32];     // Literally: "Compressed Prime Binary: 1.0"
+    char headerSize[32];    // The size of this structure: sizeof(CompressedBinaryHeader)
+                            // Extensions to this format may increase this from 1024 adding additional fields at the endRange
+                            // Extensions should keep this size as a multiple of 1024.
+    char dataBlockSize[32]; // the size of the data block following this header (protection against truncated files and allowance for concatenated files).
+    char fromToSize[32];    // The size of the from and to fields in this header (ie: 256)
+    char primeCount[32];    // The number of primes found in this file
+    char textSize[32];      // The number of bytes in an askii representation of this file this includes one byte per prime for a delimiting \n character.
+    char comments[288];     // Anything may be written here as long as it's UTF-8
+    char skip[32];          // Comma separated list of primes who's multiples are not in the bitmap.  This is current just "2".
+    char from[256];         // The offset for this bitmap including skipped numbers. 
+                            // Eg: from "1000" skip "2" - the first bit will represent 1001.
+                            // Eg: from "5000" skip "2,3" - the first bit will represent 5003.
+    char to[256];           // The upper limit of this data file.  De-compressors MUST ignore all bits >= to this.
 } __attribute__ ((packed)) CompressedBinaryHeader;
 
 // The single file to write to (if single file is enabled);
@@ -97,6 +101,18 @@ static int disallow2 = 0;
 // Maps used to operate on compressed prime bitmasks
 static unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0xF7, 0xFF, 0xEF, 0xFF, 0xDF, 0xFF, 0xBF, 0xFF, 0x7F};
 static unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
+
+static unsigned char * lowPrimeMap;
+static size_t lowPrimeMapSize;
+
+static int  bitCount[] =            {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+                                     1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+                                     1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+                                     2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+                                     1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+                                     2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+                                     2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+                                     3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8};
 
 static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t mapSize) {
     // An optomisatin can be made here by splitting this function into two.
@@ -358,13 +374,11 @@ static void initializeFromFile() {
 
 
 
-
 static void finalFile() {
     // Unmap the file and close the handle
     if ( munmap( primes, initFileSize) ) exitError(1, errno, "failed to unmap file %s", initFileName);
     if ( close(initFileHandle) )  exitError(1, errno, "failed to close file %s", initFileName);
 }
-
 
 
 
@@ -470,16 +484,82 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
     CompressedBinaryHeader header;
     memset(&header, 0, sizeof(CompressedBinaryHeader));
     snprintf(header.headerSize, sizeof(header.headerSize), "%zd", sizeof(CompressedBinaryHeader));
-    snprintf(header.signature, sizeof(header.signature), "Compressed Prime Binary 1.0");
+    snprintf(header.signature, sizeof(header.signature), "Compressed Prime Binary: 1.0");
     snprintf(header.dataBlockSize, sizeof(header.dataBlockSize), "%zd", range);
     snprintf(header.skip, sizeof(header.skip), "2");
-	snprintf(header.fromToSize, sizeof(header.fromToSize), "%zd",sizeof(header.from));
+    snprintf(header.fromToSize, sizeof(header.fromToSize), "%zd",sizeof(header.from));
     snprintf(header.comments, sizeof(header.comments), "Created by...\n%s", getVersion());
-	PrimeString s;
-	prime_to_str(s,startValue);
-	snprintf(header.from, sizeof(header.from),"%s", s);
-	prime_to_str(s, endValue);
-	snprintf(header.to, sizeof(header.to), "%s",s);
+    Prime tmp;
+    prime_set_num(tmp, 2);
+    PrimeString s;
+    if (prime_eq(startValue, tmp) || disallow2) {
+        prime_set_num(tmp, 3);
+        prime_to_str(s, tmp);
+    }
+    else {
+        prime_to_str(s, startValue);
+    }
+    snprintf(header.from, sizeof(header.from),"%s", s);
+    prime_to_str(s, endValue);
+    snprintf(header.to, sizeof(header.to), "%s",s);
+    
+    // Count primes in the file
+    prime_sub_num(tmp, endValue, 1);
+    prime_to_str(s, tmp);
+    size_t stringSize = strlen(s);
+    size_t foundPrimes = 0;
+    size_t textSize = 0;
+    size_t endRange = range -1;
+    if (strlen(header.fromToSize) == stringSize) {
+        stringSize += 1;
+        for (size_t i=0; i<range; ++i) {
+            foundPrimes += bitCount[bitmap[I]];
+        }
+        textSize = foundPrimes * stringSize;
+    }
+    else {
+        stringSize = 2;
+        PrimeString stringMaxAtSize = "9";
+        Prime maxAtSize;
+        prime_set_num(maxAtSize, 9);
+        for (size_t i = 0; i < endRange; ++i) {
+            if (bitmap[i]) {
+                for (int j = 1; j < 16; j+=2) {
+                    if (bitmap[i] & checkMask[j]) {
+                        Prime value;
+                        getPrimeFromMap(value, from, i, j);
+                        while (prime_gt(value, maxAtSize)) {
+                            strcat(stringMaxAtSize,"9");
+                            str_to_prime(maxAtSize, stringMaxAtSize);
+                            ++stringSize;
+                        }
+                    }
+                }
+            }
+        }
+        if (bitmap[endRange]) {
+            for (int j = 1; j < 16; j+=2) {
+                if (bitmap[endRange] & checkMask[j]) {
+                    Prime value;
+                    getPrimeFromMap(value, from, endRange, j);
+                    if (prime_lt(value, endValue)) {
+                        Prime value;
+                        getPrimeFromMap(value, from, i, j);
+                        while (prime_gt(value, maxAtSize)) {
+                            strcat(stringMaxAtSize,"9");
+                            str_to_prime(maxAtSize, stringMaxAtSize);
+                            ++stringSize;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    prime_to_str(s,foundPrimes);
+    snprintf(header.primeCount, sizeof(header.primeCount),"%s", s);
+    prime_to_str(s,textSize);
+    snprintf(header.textSize, sizeof(header.textSize),"%s", s);
+    
     fwrite(&header, sizeof(CompressedBinaryHeader), 1, file);
     fwrite(bitmap, sizeof(unsigned char), range, file);
     if (singleFile && threadCount > 1) {
@@ -499,13 +579,24 @@ static void process(Prime from, Prime to, FILE * file) {
         prime_to_str(toString, to);
         stdLog("Running process for %s (inc) to %s (ex)", fromString, toString);
     }
+
     Prime prime_2;
     prime_set_num(prime_2, 2);
     if (prime_lt(from, prime_2)) {
         // Process ignores even primes
-        // Process doesnt know 1 isnt a prime, so skip it!
+        // Process doesn't know 1 isn't a prime, so skip it!
         prime_set_num(from, 2);
     }
+    else if (prime_is_odd(from)) {
+        // We can only accept even numbers for start values
+        prime_sub_num(from, from, 1);
+
+        // Here we may accidently bring 2 into scope by making 3 an even number (2).
+        // So we specifically ban it if this has happened
+        // This is the only time we need to "disallow2"
+        if (prime_eq(startValue, prime_2)) disallow2 = 1;
+    }
+
     
     prime_sub_prime(tmp, to, from);
     size_t range = (prime_get_num(tmp) + 15) / 16;
@@ -594,18 +685,6 @@ static void * processAllChunks(void * threadPt) {
 
 void runThreads() {
     threads = mallocSafe(sizeof(struct ThreadDescriptor) * threadCount);
-
-    if (prime_is_odd(startValue)) {
-        // We can only accept even numbers for start values
-        prime_sub_num(startValue, startValue, 1);
-
-        // Here we may accidently bring 2 into scope by making 3 an even number (2).
-        // So we specifically ban it if this has happened
-        // This is the only time we need to "disallow2"
-        Prime z;
-        prime_set_num(z, 2);
-        if (prime_eq(startValue, z)) disallow2 = 1;
-    }
 
     if (threadCount == 1) {
         if (!silent) stdLog("Running single threaded");

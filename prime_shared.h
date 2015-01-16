@@ -76,7 +76,7 @@ extern int verbose;
 
 void stdLog(char * str, ...);
 void exitError(int num, int errorNumber, char * str, ...);
-void logWarning(int num, int errorNumber, char * str, ...);
+void logWarning(int errorNumber, char * str, ...);
 
 void * mallocSafe(size_t bytes);
 void * reallocSafe(void * existing, size_t bytes);

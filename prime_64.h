@@ -3,6 +3,9 @@
 
 #define PRIME_ARCHITECTURE Long Long Int
 
+#define PRIME_LIMB_SIZE sizeof(long long) 
+#define PRIME_LIMB_COUNT ((size_t) 1)
+
 typedef long long Prime;
 
 #define prime_set_num(target, value) target = value

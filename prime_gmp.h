@@ -6,7 +6,8 @@
 #define PRIME_ARCHITECTURE GMP
 
 // gmp
-#define PRIME_LIMB_COUNT ( PRIME_SIZE / sizeof(mp_limb_t) / 8 )
+#define PRIME_LIMB_SIZE ( sizeof(mp_limb_t) )
+#define PRIME_LIMB_COUNT ( PRIME_SIZE / PRIME_LIMB_SIZE / 8 )
 typedef mp_limb_t Prime[PRIME_LIMB_COUNT];
 
 char * prime_to_str(char * s, Prime prime);

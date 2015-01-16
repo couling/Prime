@@ -2,13 +2,13 @@
 .SH NAME
 prime prime-slow prime-64 prime-gmp
 .SH SYNOPSIS
-prime [options ...]
+prime [options ...] [initialisation file]
 .br
-prime-slow [options ...]
+prime-slow [options ...] [initialisation file]
 .br
-prime-64 [options ...]
+prime-64 [options ...] [initialisation file]
 .br
-prime-gmp [options ...]
+prime-gmp [options ...] [initialisation file]
 .SH DESCRIPTION
 Generates prime numbers very rapidly.  The current version is written in c.
 
@@ -48,7 +48,7 @@ Note that the chunk size will also be used to break up the files if the
 Specifies the directory to place the output files.  Note that specifying an absolute path in the file name (one starting with /) will override this.  By default output files are placed in the current working directory.  See  
 .TP 
 .B \-e num  \-\-end num
-Sets the end of the search range.  Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The choice of suffix will affect the default naming convention.
+Sets the end of the search range.  Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The choice of suffix will affect the default naming convention of the output file.
 .B -f --file
 switch is used (it is by default).  As a result the suffix will also affect the file name format.
 .B \-n
@@ -60,8 +60,8 @@ Sets prime to write to files.  Each chunk will be written to its own file.  This
 .B \-F \-\-single\-file
 Sets prime to write to a single file instead of stdout. All chunks will be written in order which will slow the program down.  It is better to use \-\-multi\-file if at all possible.
 .TP
-.B \-i \-\-init-file
-Specify an initialisation file generated with -b previously
+.B \-i \-\-create\-init\-file    
+Equivalent to \-bfs 3 \-n init\-%9e9OG.dat
 .TP
 .B \-k \-\-clobber Allow overwriting of existing files.  By default prime will cause the job to abort.
 .TP
@@ -87,23 +87,23 @@ Switchs off all writing to the stderr except for errors.  Normally prime will wr
 .B \-q
 ) switchs.
 .TP
+.B \-s num \-\-start num
+Sets the start of the search range. Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The choice of suffix will affect the default naming convention of the output file.
+.TP
 .B \-x n  \-\-threads\ n
 Specifies the number of threads to use (default 1).
 .SH KNOWN ISSUES
 The evaluation of time / date in naming can differ between the evaluation of file name and directory.  It's better to place time and date in only one of these two.
 .SH EXAMPLES
-.TP 
-.B \-s num  \-\-start num
-Sets the start of the search range.  Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The choice of suffix will affect the default naming convention.
 .TP
 Run single threaded writing every prime number up to 100 billion (100,000,000,000)
-prime --end 100G --use-stdout > result.txt
+prime \-\-end 100G \-\-use-stdout > result.txt
 .TP
 Generate initialisation file valid for numbers up to 1 billion billion (1,000,000,000,000,000,000).  
 To do this we generate every number up to 1,000,000,000 (1 billion).
-prime --end 1G prime.%12e6om-%12e6OM.dat --binary-out
+prime \-\-end 1G \-\-create\-init\-file
 .TP
-Run with 4 threads using an initialisation file (note initialisation files are NOT required for multithreading)
-prime --start 1000T --end 1001T --thread-count 4 prime.0000000000000000000-0000000001000000000.dat
+Run with 4 threads using an initialisation file (note initialisation files are NOT required for multithreading, this is just an example)
+prime \-\-start 1000T \-\-end 1001T \-\-thread-count 4 prime.0000000000000000000-0000000001000000000.dat
 .SH AUTHOR(S)
 Philip Couling

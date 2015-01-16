@@ -69,13 +69,16 @@ static WritePrimeFunction writePrime = writePrimeText;
 
 // Header for compressed binary
 typedef struct {
-    char headerSize[4];
-    char signature[60];
-    char blockSize[64];
-    char from[64];
-    char to[64];
-    char skip[64];
-    char comments[192];
+    char headerSize[32];
+	char signature[32];
+    char dataBlockSize[32];
+	char skip[32];
+	char fromToSize[32];
+	char textSize[32];
+	char primeCount[32];
+	char comments[288];
+    char from[256];
+    char to[256];
 } __attribute__ ((packed)) CompressedBinaryHeader;
 
 // The single file to write to (if single file is enabled);
@@ -466,13 +469,17 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
     }
     CompressedBinaryHeader header;
     memset(&header, 0, sizeof(CompressedBinaryHeader));
-    snprintf(header.headerSize, 4, "%zd", sizeof(CompressedBinaryHeader));
-    snprintf(header.signature, 60, "Compressed Prime Binary 1.0");
-    snprintf(header.blockSize, 64, "%zd", range);
-    prime_to_str(header.from, startValue);
-    prime_to_str(header.to, endValue);
-    snprintf(header.skip, 64, "2", range);
-    snprintf(header.comments, 192, "Created by...\n%s", getVersion());
+    snprintf(header.headerSize, sizeof(header.headerSize), "%zd", sizeof(CompressedBinaryHeader));
+    snprintf(header.signature, sizeof(header.signature), "Compressed Prime Binary 1.0");
+    snprintf(header.dataBlockSize, sizeof(header.dataBlockSize), "%zd", range);
+    snprintf(header.skip, sizeof(header.skip), "2");
+	snprintf(header.fromToSize, sizeof(header.fromToSize), "%zd",sizeof(header.from));
+    snprintf(header.comments, sizeof(header.comments), "Created by...\n%s", getVersion());
+	PrimeString s;
+	prime_to_str(s,startValue);
+	snprintf(header.from, sizeof(header.from),"%s", s);
+	prime_to_str(s, endValue);
+	snprintf(header.to, sizeof(header.to), "%s",s);
     fwrite(&header, sizeof(CompressedBinaryHeader), 1, file);
     fwrite(bitmap, sizeof(unsigned char), range, file);
     if (singleFile && threadCount > 1) {
@@ -485,29 +492,19 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
 static void process(Prime from, Prime to, FILE * file) {
     Prime tmp;
 
-    if (verbose) {
+    if (verbose || (!silent && singleFile)) {
         PrimeString fromString;
         prime_to_str(fromString, from);
         PrimeString toString;
         prime_to_str(toString, to);
         stdLog("Running process for %s (inc) to %s (ex)", fromString, toString);
     }
-    Prime askFrom;  // This is what were were asked to calculate from
-    prime_cp(askFrom, from);
     Prime prime_2;
     prime_set_num(prime_2, 2);
     if (prime_lt(from, prime_2)) {
         // Process ignores even primes
         // Process doesnt know 1 isnt a prime, so skip it!
         prime_set_num(from, 2);
-        prime_set_num(askFrom, 2); // yup if we're asked to start from 1 or less
-                                    // ignore the stupid user and calculate from 2
-    }
-    else {
-        // Process expects to be aligned to a even number.
-        // process ignores even numbers so adding an extra even to the start of the range
-        // number won't cause process to find an extra prime
-        if (prime_is_odd(from)) prime_sub_num(from, from, 1);
     }
     
     prime_sub_prime(tmp, to, from);
@@ -531,7 +528,7 @@ static void process(Prime from, Prime to, FILE * file) {
         applyPrime(primes[i], from, bitmap, range);
     }
 
-    writePrime(askFrom, to, range, bitmap, file);
+    writePrime(from, to, range, bitmap, file);
 
     
     if (verbose) {

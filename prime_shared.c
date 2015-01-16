@@ -327,8 +327,8 @@ char * getVersion() {
     "\nCopyright (C) 2013 Philip Couling"
     "\nArchitechture: " STR_VALUE(PRIME_ARCHITECTURE)
     "\nPrime size: %zd bit"
-    "\nBuilt: " __DATE__ " " __TIME__ "\n", sizeof(Prime) * 8);
-    stdLog("%d", x);
+	"\nPrime subdivision: %zd elements of %zd bits"
+    "\nBuilt: " __DATE__ " " __TIME__ "\n", sizeof(Prime) * 8, PRIME_LIMB_COUNT, PRIME_LIMB_SIZE * 8);
     return buffer;
 }
 
@@ -365,7 +365,7 @@ static void printUsage(int argC, char ** argV) {
             "  -d --directory           Specify the output directory, will be ignored if file name\n"
             "                           starts with /\n"
             "  -n --file-name           Specify the file name as a pattern\n"
-            "                           Eg: prime.%%9x9oG-%%9x9OG.txt\n"
+            "                           Eg: prime.%%9e9oG-%%9e9OG.txt\n"
             "  -f --single-file         Write to a new file\n"
             "  -F --multi-file          Write to one file per chunk\n"
             "  -p --use-stdout          Write to the stdout, will not create files\n"
@@ -373,9 +373,9 @@ static void printUsage(int argC, char ** argV) {
             "  -I --create-init-file    Equivalent to -bfs 3 -n init-%%9e9OG.dat\n"
             "\n"
             "General processing options:"
-            "  -c --chunk-million       size of chunks to process in millions\n"
-            "                           (affects file size when using -F)\n"
-            "  -C --chunk-billion       size of chunks to process in billions\n"
+            "  -c --chunk-size          size of chunks to process\n"
+            "                           suffix this with k,m,g,t to multiply by\n"
+            "                           one thousand, million, billion or trillion\n"
             "                           (affects file size when using -F)\n"
             "  -x --threads             Specify the number of threads to use (default 1)\n"
             "  -i --init-file           Specify an initialisation file generated with -b previously\n"

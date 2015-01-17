@@ -4,7 +4,7 @@ output_name= -o $@
 basic_depends= prime_shared.h makefile | build
 
 gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
-arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter x86,${gcc_arch}}}
+arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter ${gcc_arch},x86}, ${if ${filter ${gcc_arch},arm},armhf}}
 version:=${shell awk '/^Version:/ {print $$2}' control}r${shell svn info | awk '/Revision:/ {print $$2}'}
 package:=${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
 required_files:=${filter-out build/control,${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}}

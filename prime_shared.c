@@ -39,15 +39,15 @@ pthread_key_t threadNumKey;
 
 
 static char * defaultFileNames [] = {
-    "prime.%18e0o-%18e0O.txt",
-    "prime.%15e3oK-%15e3OK.txt",
-    "prime.%12e6oM-%12e6OM.txt",
-    "prime.%9e9oG-%9e9OG.txt"
+    "prime.%18e0o-%18e0O.",
+    "prime.%15e3oK-%15e3OK.",
+    "prime.%12e6oM-%12e6OM.",
+    "prime.%9e9oG-%9e9OG."
 };
 
 
 
-static char * timeNow() {
+char * timeNow() {
     time_t rawtime;
     struct tm * timeinfo;
     time(&rawtime);
@@ -532,6 +532,20 @@ void parseArgs(int argC, char ** argV) {
             break;
         }
     }
+
+
+    if (fileName == defaultFileNames[0] 
+	|| fileName == defaultFileNames[1] 
+	|| fileName == defaultFileNames[2] 
+	|| fileName == defaultFileNames[3]) {
+		static char tmpFileName[50];
+		strcpy(tmpFileName, fileName);
+		if (fileType == FILE_TYPE_TEXT) strcat(tmpFileName,"txt");
+		else if (fileType == FILE_TYPE_COMPRESSED_BINARY) strcat(tmpFileName,"primefile");
+		else strcat(tmpFileName,"dat");
+		fileName = tmpFileName;
+	}
+
 
     if (optind != argC) {
         exitError(1 , 0, "invalid option %s", argV[optind]);

@@ -388,6 +388,7 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
         sem_wait(&threads[threadNum].writeSemaphore);
     }
+
     Prime prime_2;
     prime_set_num(prime_2, 2);
     if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
@@ -475,7 +476,7 @@ static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned 
 
 
 
-static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file ) {
+static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file ) {
     int threadNum;
     if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
@@ -488,36 +489,55 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
     snprintf(header.dataBlockSize, sizeof(header.dataBlockSize), "%zd", range);
     snprintf(header.skip, sizeof(header.skip), "2");
     snprintf(header.fromToSize, sizeof(header.fromToSize), "%zd",sizeof(header.from));
-    snprintf(header.comments, sizeof(header.comments), "Created by...\n%s", getVersion());
-    Prime tmp;
+    snprintf(header.comments, sizeof(header.comments), "File Created on: %s\n\nCreated by...\n%s", timeNow(), getVersion());
+    
+    size_t foundPrimes = 0;
+    size_t textSize = 0;
+
+	Prime tmp;
     prime_set_num(tmp, 2);
     PrimeString s;
-    if (prime_eq(startValue, tmp) || disallow2) {
-        prime_set_num(tmp, 3);
-        prime_to_str(s, tmp);
+    if (prime_eq(from, tmp)) {
+	    if (disallow2) {
+            prime_set_num(tmp, 3);
+            prime_to_str(s, tmp);
+		}
+		else {
+			foundPrimes = 1;
+			textSize = 2;
+		}
     }
     else {
-        prime_to_str(s, startValue);
+        prime_to_str(s, from);
     }
     snprintf(header.from, sizeof(header.from),"%s", s);
-    prime_to_str(s, endValue);
+    prime_to_str(s, to);
     snprintf(header.to, sizeof(header.to), "%s",s);
     
     // Count primes in the file
-    prime_sub_num(tmp, endValue, 1);
+    prime_sub_num(tmp, to, 1);
     prime_to_str(s, tmp);
     size_t stringSize = strlen(s);
-    size_t foundPrimes = 0;
-    size_t textSize = 0;
     size_t endRange = range -1;
-    if (strlen(header.fromToSize) == stringSize) {
+    if (strlen(header.from) == stringSize) {
+        // Fast
         stringSize += 1;
-        for (size_t i=0; i<range; ++i) {
-            foundPrimes += bitCount[bitmap[I]];
+        for (size_t i=0; i<endRange; ++i) {
+            foundPrimes += bitCount[bitmap[i]];
+        }
+        if (bitmap[endRange]) {
+            for (int j = 1; j < 16; j+=2) {
+                if (bitmap[endRange] & checkMask[j]) {
+                    Prime value;
+                    getPrimeFromMap(value, from, endRange, j);
+                    if (prime_lt(value, to)) ++foundPrimes;
+                }
+            }
         }
         textSize = foundPrimes * stringSize;
     }
     else {
+        // Slow
         stringSize = 2;
         PrimeString stringMaxAtSize = "9";
         Prime maxAtSize;
@@ -533,6 +553,8 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
                             str_to_prime(maxAtSize, stringMaxAtSize);
                             ++stringSize;
                         }
+						++foundPrimes;
+						textSize += stringSize;
                     }
                 }
             }
@@ -542,23 +564,22 @@ static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t 
                 if (bitmap[endRange] & checkMask[j]) {
                     Prime value;
                     getPrimeFromMap(value, from, endRange, j);
-                    if (prime_lt(value, endValue)) {
-                        Prime value;
-                        getPrimeFromMap(value, from, i, j);
+                    if (prime_lt(value, to)) {
                         while (prime_gt(value, maxAtSize)) {
                             strcat(stringMaxAtSize,"9");
                             str_to_prime(maxAtSize, stringMaxAtSize);
                             ++stringSize;
                         }
+                        ++foundPrimes;
+                        textSize += stringSize;
                     }
                 }
             }
         }
     }
-    prime_to_str(s,foundPrimes);
-    snprintf(header.primeCount, sizeof(header.primeCount),"%s", s);
-    prime_to_str(s,textSize);
-    snprintf(header.textSize, sizeof(header.textSize),"%s", s);
+
+	snprintf(header.primeCount, sizeof(header.primeCount),"%zd", foundPrimes);
+    snprintf(header.textSize, sizeof(header.textSize),"%zd", textSize);
     
     fwrite(&header, sizeof(CompressedBinaryHeader), 1, file);
     fwrite(bitmap, sizeof(unsigned char), range, file);

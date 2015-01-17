@@ -73,7 +73,6 @@ extern int silent;
 extern int verbose;
 
 
-
 void stdLog(char * str, ...);
 void exitError(int num, int errorNumber, char * str, ...);
 void logWarning(int errorNumber, char * str, ...);
@@ -88,4 +87,5 @@ FILE * openFileForPrime(Prime from, Prime to);
 
 void parseArgs(int argC, char ** argV);
 char * getVersion();
+char * timeNow();
 #endif // prime_shared_h

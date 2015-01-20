@@ -55,6 +55,7 @@ typedef char PrimeString[PRIME_STRING_SIZE];
 extern Prime startValue;
 extern Prime endValue;
 extern Prime chunkSize;
+extern Prime lowPrimeMax;
 
 extern int threadCount;
 extern pthread_key_t threadNumKey;

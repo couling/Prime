@@ -103,7 +103,10 @@ static unsigned char removeMask[] = {0xFF, 0xFE, 0xFF, 0xFD, 0xFF, 0xFB, 0xFF, 0
 static unsigned char checkMask[] =  {0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80};
 
 static unsigned char * lowPrimeMap;
-static size_t lowPrimeMapSize;
+static size_t lowPrimeCount;
+static Prime lowPrimeMapSize;
+static Prime lowPrimeMapMultiplyer;
+static int lowPrimeModLookup[] = {0,15,0,5,0,3,0,9,0,7,0,13,0,11,0,1};
 
 static int  bitCount[] =            {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
                                      1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
@@ -178,6 +181,63 @@ static void addPrime(Prime value) {
 
 
 
+static void populateLowPrimeMap() {
+	prime_set_num(lowPrimeMapSize, 1);
+	lowPrimeCount = 0;
+	while (prime_le(primes[lowPrimeCount], lowPrimeMax)) {
+		prime_mul_prime(lowPrimeMapSize, lowPrimeMapSize, primes[lowPrimeCount]);
+		++lowPrimeCount;
+	}
+
+	if (!lowPrimeCount) return;
+
+	lowPrimeMap = mallocSafe(prime_get_num(lowPrimeMapSize)*2);
+	memset(lowPrimeMap, 0xFF, prime_get_num(lowPrimeMapSize));
+
+	Prime offset;
+	prime_mul_num(offset,lowPrimeMapSize,4);
+
+	for (int i=0; i < lowPrimeCount; ++i) {
+		// we dont put 0 into arg 2 to be sure of clearing 0 bit
+		applyPrime(primes[i], offset, lowPrimeMap, prime_get_num(lowPrimeMapSize));
+	}
+	
+	memcpy(lowPrimeMap+prime_get_num(lowPrimeMapSize), lowPrimeMap, prime_get_num(lowPrimeMapSize));
+
+	// Don't ask why this multiplyer works, it works.
+	// There is a logic but its convoluted.
+
+	prime_mod_num(lowPrimeMapMultiplyer, lowPrimeMapSize, 16);
+    prime_mul_num(lowPrimeMapMultiplyer, lowPrimeMapSize, lowPrimeModLookup[prime_get_num(lowPrimeMapMultiplyer)]);
+    prime_add_num(lowPrimeMapMultiplyer, lowPrimeMapMultiplyer, 1);
+    prime_div_num(lowPrimeMapMultiplyer, lowPrimeMapMultiplyer, 16);
+    prime_mod_prime(lowPrimeMapMultiplyer, lowPrimeMapMultiplyer, lowPrimeMapSize);
+	if (verbose) {
+        if (lowPrimeCount > 0) {
+            PrimeString maxLowPrime;
+            prime_to_str(maxLowPrime, primes[lowPrimeCount-1]);
+            stdLog("Using %zd low primes - max %s", lowPrimeCount, maxLowPrime);
+            stdLog("lowPrimeMapSize: %zd", prime_get_num(lowPrimeMapSize));
+			/*char bString[9];
+			bString[8] = 0;
+			for (int i = 0; i < prime_get_num(lowPrimeMapSize); ++i) {
+				for (int j = 0; j < 8; ++j) {
+					bString[j] = ((lowPrimeMap[i] & (1 << j)) ? '1' : '0' );
+				}
+				stdLog("%s", bString);
+			}*/
+        }
+        else {
+          stdLog("No low primes used");
+        }
+		PrimeString s;
+		prime_to_str(s, lowPrimeMapMultiplyer);
+		stdLog("lowPrimeMapMultiplyer: %s", s);
+	}
+}
+
+
+
 static void initializeSelf() {
     if (!silent) {
         PrimeString startValueString;
@@ -230,7 +290,7 @@ static void initializeSelf() {
     size_t i = 1;
     while (i <= endRange) {
         if (verbose && !(i & SCAN_DEBUG_MASK)) 
-            stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+            stdLog("Writing primes as text %02.2f%%", 100 * ((double) i)/((double) range));
         
         if (bitmap[i]) {
             for (int j = 1; j < 16; j+=2) {
@@ -249,7 +309,7 @@ static void initializeSelf() {
     // Primes here do not need to be applied to the map
     while (i < range) {
         if (verbose && !(i & SCAN_DEBUG_MASK))
-            stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+            stdLog("Writing primes %02.2f%%", 100 * ((double) i)/((double) range));
         
         if (bitmap[i]) {
             for (int j = 1; j < 16; j+=2) {
@@ -272,6 +332,7 @@ static void initializeSelf() {
 
 static void finalSelf() {
     free(primes);
+	free(lowPrimeMap);
 }
 
 
@@ -378,6 +439,7 @@ static void finalFile() {
     // Unmap the file and close the handle
     if ( munmap( primes, initFileSize) ) exitError(1, errno, "failed to unmap file %s", initFileName);
     if ( close(initFileHandle) )  exitError(1, errno, "failed to close file %s", initFileName);
+	free(lowPrimeMap);
 }
 
 
@@ -397,7 +459,7 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
         if (verbose && !(i & SCAN_DEBUG_MASK)) 
-            stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+            stdLog("Writing primes as text %02.2f%%", 100 * ((double) i)/((double) range));
 
         if (bitmap[i]) {
             for (int j = 1; j < 16; j+=2) {
@@ -412,7 +474,6 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
         }
     }
 
-    if (verbose) stdLog("Scanning last byte of bitmap for new primes");
     if (bitmap[endRange]) {
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
@@ -447,7 +508,7 @@ static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned 
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
         if (!(i & SCAN_DEBUG_MASK)) {
-            if (verbose) stdLog("Scanning for new primes %02.2f%%", 100 * ((double) i)/((double) range));
+            if (verbose) stdLog("Writing primes %02.2f%%", 100 * ((double) i)/((double) range));
         }
         if (bitmap[i]) {
             for (int j = 1; j < 16; j+=2) {
@@ -459,7 +520,6 @@ static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned 
             }
         }
     }
-    if (verbose) stdLog("Scanning last byte of bitmap for new primes");
     if (bitmap[endRange]) {
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
@@ -624,21 +684,65 @@ static void process(Prime from, Prime to, FILE * file) {
     if (verbose) stdLog("Bitmap will contain %zd bytes", range);
 
     unsigned char * bitmap = mallocSafe(range);
-    memset(bitmap, 0xFF, range);
 
-    if (verbose) stdLog("Applying all primes", from, to);
+	if (lowPrimeCount) {
+	//memset(bitmap, 0xFF, range);
+	// This is theoretically not needed but we don't want to hit size limits
+	// so we take a mod before and after applying the multiplyer to keep the number smaller
+		prime_mod_prime(tmp, from, lowPrimeMapSize);
+		prime_mul_prime(tmp, tmp, lowPrimeMapMultiplyer);
+		prime_mod_prime(tmp, tmp, lowPrimeMapSize);
+		char * lowPrimeMapPos = lowPrimeMap + prime_get_num(tmp);
+		size_t copySize = prime_get_num(lowPrimeMapSize); 
+		char * currentMapPos = bitmap;
+		size_t sizeLeft = range;
+		if (verbose) {
+			stdLog("Using low prime map offset %zd", (size_t)prime_get_num(tmp));
+		}
+		while (sizeLeft > copySize) {
+			memcpy(currentMapPos, lowPrimeMapPos, copySize);
+			sizeLeft -= copySize;
+			currentMapPos += copySize;
+		}
+		if (sizeLeft > 0) {
+			memcpy(currentMapPos, lowPrimeMapPos, sizeLeft);
+		}
+	}
+	else {
+		memset(bitmap, 0xFF, range);
+	}
 
-    for (size_t i = 0; i < primeCount; ++i) {
+
+    if (verbose) {
+		PrimeString fromString;
+		PrimeString toString;
+		prime_to_str(fromString, from);
+		prime_to_str(toString, to);
+		stdLog("Calculating primes for range %s to %s", fromString, toString);
+	}
+	// start with the first prime which is not a low prime
+    for (size_t i = lowPrimeCount; i < primeCount; ++i) {
         if (verbose) {
             if (!(i & APPLY_DEBUG_MASK)) {
                 PrimeString primeValueString;
                 prime_to_str(primeValueString, primes[i]);
-                stdLog("Applying primes %02.2f%% (%zd of %zd [%s])", 
+                stdLog("Calculating primes %02.2f%% (%zd of %zd [%s])", 
                     100 * ((double)i) / ((double)primeCount),i+1, primeCount, primeValueString);
             }
         }
         applyPrime(primes[i], from, bitmap, range);
     }
+
+	if (lowPrimeCount) {
+		size_t currentLowPrime = lowPrimeCount-1;
+		while (currentLowPrime >= 0 && prime_ge(primes[currentLowPrime],from)) {
+			Prime v1, v2;
+			prime_sub_prime(v1, primes[currentLowPrime], from);
+    	    prime_div_16(v2, v1);
+			bitmap[prime_get_num(v2)] |= checkMask[prime_get_num(v1) & 0x0F];
+			currentLowPrime--;
+		}
+	}
 
     writePrime(from, to, range, bitmap, file);
 
@@ -782,12 +886,13 @@ int main(int argC, char ** argV) {
     // Initialise the primes array
     if (initFileName) initializeFromFile();
     else initializeSelf();
+	populateLowPrimeMap();
 
     // Set the debug mask, this is used for verbose priting
     if (verbose) {
         size_t tmp = primeCount;
         APPLY_DEBUG_MASK = 0xF;
-        while (tmp & 0xFFFFF000) {
+        while (tmp & 0xFFFFF700) {
             tmp >>= 8;
             APPLY_DEBUG_MASK = (APPLY_DEBUG_MASK << 8) | 0xFF;
         }

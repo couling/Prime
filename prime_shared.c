@@ -18,6 +18,7 @@
 Prime startValue;
 Prime endValue;
 Prime chunkSize;
+Prime lowPrimeMax;
 
 int threadCount;
 
@@ -377,6 +378,8 @@ static void printUsage(int argC, char ** argV) {
             "                           suffix this with k,m,g,t to multiply by\n"
             "                           one thousand, million, billion or trillion\n"
             "                           (affects file size when using -F)\n"
+			"  -l --low-prime-max       The maximum value for low primes."
+			"                           This can not be set above 20 (ie: 19)\n"
             "  -x --threads             Specify the number of threads to use (default 1)\n"
             "  -i --init-file           Specify an initialisation file generated with -b previously\n"
             "\n"
@@ -450,6 +453,7 @@ void parseArgs(int argC, char ** argV) {
     prime_set_num(startValue, 0);
     prime_set_num(endValue, 1000000000);
     prime_set_num(chunkSize, 1000000000);
+	prime_set_num(lowPrimeMax,20);
     
 
     dirName      = "";
@@ -463,6 +467,7 @@ void parseArgs(int argC, char ** argV) {
             { "start", required_argument, 0, 's' },
             { "end", required_argument, 0, 'e' },
             { "chunk-size", required_argument, 0, 'c' },
+			{ "low-prime-max", required_argument, 0 , 'l'},
             { "threads", required_argument, 0, 'x' },
             { "directory", required_argument, 0, 'd'},
             { "file-name", required_argument, 0, 'n'},
@@ -491,6 +496,19 @@ void parseArgs(int argC, char ** argV) {
         case 's': stringToSize(&startValue, optarg);              break;
         case 'e': stringToSize(&endValue, optarg);                break;
         case 'c': stringToSize(&chunkSize, optarg);               break;
+		case 'l': {
+            long value;
+            char * endptr;
+            value = strtol(optarg, &endptr, 10);
+            if (*endptr || value < 0 || value > 21) {
+                exitError(1, 0,
+                        "max low prime %s is invalid. Must be between 1 and 21",
+                        optarg);
+            }
+            prime_set_num(lowPrimeMax, value);
+            break;
+		}
+
         case 'q': silent = 1;                 verbose = 0;        break;
         case 'v': verbose = !silent;                              break;
         case 'f': useStdout = 0;              singleFile = 1;     break;

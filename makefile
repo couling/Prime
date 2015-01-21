@@ -22,6 +22,9 @@ build/prime-gmp: prime.c prime_gmp.c prime_shared.c prime_gmp.h $(basic_depends)
 build/prime-slow: prime-slow.c prime_64.c prime_shared.c prime_64.h $(basic_depends)
 	gcc $(output_name) $(flags) -DPRIME_ARCH_INT -DPRIME_PROGRAM_NAME=prime-slow -DPRIME_PROGRAM_VERSION="${version} ${arch}" $(c_files) -lm -lpthread
 
+build/prime-check: prime-check.c prime_shared.c prime_shared.h
+	gcc $(output_name) $(flags) $(c_files)
+
 build/prime.1.gz: prime.1
 	gzip -9c prime.1 > build/prime.1.gz 
 

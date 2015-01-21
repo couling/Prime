@@ -328,7 +328,7 @@ char * getVersion() {
     "\nCopyright (C) 2013 Philip Couling"
     "\nArchitechture: " STR_VALUE(PRIME_ARCHITECTURE)
     "\nPrime size: %zd bit"
-	"\nPrime subdivision: %zd elements of %zd bits"
+    "\nPrime subdivision: %zd elements of %zd bits"
     "\nBuilt: " __DATE__ " " __TIME__ "\n", sizeof(Prime) * 8, PRIME_LIMB_COUNT, PRIME_LIMB_SIZE * 8);
     return buffer;
 }
@@ -378,8 +378,8 @@ static void printUsage(int argC, char ** argV) {
             "                           suffix this with k,m,g,t to multiply by\n"
             "                           one thousand, million, billion or trillion\n"
             "                           (affects file size when using -F)\n"
-			"  -l --low-prime-max       The maximum value for low primes."
-			"                           This can not be set above 20 (ie: 19)\n"
+            "  -l --low-prime-max       The maximum value for low primes."
+            "                           This can not be set above 20 (ie: 19)\n"
             "  -x --threads             Specify the number of threads to use (default 1)\n"
             "  -i --init-file           Specify an initialisation file generated with -b previously\n"
             "\n"
@@ -451,9 +451,9 @@ void parseArgs(int argC, char ** argV) {
 
 
     prime_set_num(startValue, 0);
-    prime_set_num(endValue, 1000000000);
-    prime_set_num(chunkSize, 1000000000);
-	prime_set_num(lowPrimeMax,20);
+    prime_set_num(endValue,   1000000000);
+    prime_set_num(chunkSize,  1000000000);
+    prime_set_num(lowPrimeMax,19);
     
 
     dirName      = "";
@@ -467,7 +467,7 @@ void parseArgs(int argC, char ** argV) {
             { "start", required_argument, 0, 's' },
             { "end", required_argument, 0, 'e' },
             { "chunk-size", required_argument, 0, 'c' },
-			{ "low-prime-max", required_argument, 0 , 'l'},
+            { "low-prime-max", required_argument, 0 , 'l'},
             { "threads", required_argument, 0, 'x' },
             { "directory", required_argument, 0, 'd'},
             { "file-name", required_argument, 0, 'n'},
@@ -496,18 +496,18 @@ void parseArgs(int argC, char ** argV) {
         case 's': stringToSize(&startValue, optarg);              break;
         case 'e': stringToSize(&endValue, optarg);                break;
         case 'c': stringToSize(&chunkSize, optarg);               break;
-		case 'l': {
+        case 'l': {
             long value;
             char * endptr;
             value = strtol(optarg, &endptr, 10);
-            if (*endptr || value < 0 || value > 21) {
+            if (*endptr || value < 0 || value > 23) {
                 exitError(1, 0,
                         "max low prime %s is invalid. Must be between 1 and 21",
                         optarg);
             }
             prime_set_num(lowPrimeMax, value);
             break;
-		}
+        }
 
         case 'q': silent = 1;                 verbose = 0;        break;
         case 'v': verbose = !silent;                              break;
@@ -553,16 +553,16 @@ void parseArgs(int argC, char ** argV) {
 
 
     if (fileName == defaultFileNames[0] 
-	|| fileName == defaultFileNames[1] 
-	|| fileName == defaultFileNames[2] 
-	|| fileName == defaultFileNames[3]) {
-		static char tmpFileName[50];
-		strcpy(tmpFileName, fileName);
-		if (fileType == FILE_TYPE_TEXT) strcat(tmpFileName,"txt");
-		else if (fileType == FILE_TYPE_COMPRESSED_BINARY) strcat(tmpFileName,"primefile");
-		else strcat(tmpFileName,"dat");
-		fileName = tmpFileName;
-	}
+    || fileName == defaultFileNames[1] 
+    || fileName == defaultFileNames[2] 
+    || fileName == defaultFileNames[3]) {
+        static char tmpFileName[50];
+        strcpy(tmpFileName, fileName);
+        if (fileType == FILE_TYPE_TEXT) strcat(tmpFileName,"txt");
+        else if (fileType == FILE_TYPE_COMPRESSED_BINARY) strcat(tmpFileName,"primefile");
+        else strcat(tmpFileName,"dat");
+        fileName = tmpFileName;
+    }
 
 
     if (optind != argC) {

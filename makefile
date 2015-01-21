@@ -1,7 +1,8 @@
 flags= -std=c99 -O3 -s
 c_files= $(filter %.c, $^)
-output_name= -o $@
-basic_depends= prime_shared.h makefile | build
+depends_basic= shared.c shared.h makefile | build
+depends_prime_64= $(depends_basic) prime_64.c prime_64.h prime_shared.c prime_shared.h
+depends_prime_128= $(depends_basic) prime_gmp.c prime_gmp.h prime_shared.c prime_shared.h
 
 gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
 arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter ${gcc_arch},x86}, ${if ${filter ${gcc_arch},arm},armhf}}
@@ -9,21 +10,28 @@ version:=${shell awk '/^Version:/ {print $$2}' control}r${shell svn info | awk '
 package:=${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
 required_files:=${filter-out build/control,${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}}
 
+version_injection=-DPRIME_PROGRAM_NAME=$(subst build/,,$@) -DPRIME_PROGRAM_VERSION="${version} ${arch}"
+arch_64_injection=-DPRIME_ARCH_INT $(version_injection)
+arch_128_injection=-DPRIME_ARCH_GMP -DPRIME_SIZE=128 $(version_injection)
+
+lib_64= -lm -lpthread
+lib_128= -lgmp -lpthread
+
 all: ${required_files}
 
 package: build/${package}
 
-build/prime-64: prime.c prime_64.c prime_shared.c prime_64.h $(basic_depends)
-	gcc $(output_name) $(flags) -DPRIME_ARCH_INT -DPRIME_PROGRAM_NAME=prime-64 -DPRIME_PROGRAM_VERSION="${version} ${arch}"  $(c_files)  -lm -lpthread
+build/prime-64: prime.c $(depends_prime_64)
+	gcc -o $@ $(flags) $(arch_64_injection) $(c_files) $(lib_64)
 
-build/prime-gmp: prime.c prime_gmp.c prime_shared.c prime_gmp.h $(basic_depends)
-	gcc $(output_name) $(flags) -DPRIME_ARCH_GMP -DPRIME_PROGRAM_NAME=prime-gmp -DPRIME_PROGRAM_VERSION="${version} ${arch}" -DPRIME_SIZE=128 $(c_files) -lgmp -lpthread
+build/prime-gmp: prime.c $(depends_prime_128)
+	gcc -o $@ $(flags) $(arch_128_injection) $(c_files) $(lib_128)
 
-build/prime-slow: prime-slow.c prime_64.c prime_shared.c prime_64.h $(basic_depends)
-	gcc $(output_name) $(flags) -DPRIME_ARCH_INT -DPRIME_PROGRAM_NAME=prime-slow -DPRIME_PROGRAM_VERSION="${version} ${arch}" $(c_files) -lm -lpthread
+build/prime-slow: prime-slow.c $(depends_prime_64)
+	gcc -o $@ $(flags) $(arch_64_injection) $(c_files) $(lib_64)
 
-build/prime-check: prime-check.c prime_shared.c prime_shared.h
-	gcc $(output_name) $(flags) $(c_files)
+build/prime-check: prime-check.c $(depends_basic)
+	gcc -o $@ $(flags) $(c_files)
 
 build/prime.1.gz: prime.1
 	gzip -9c prime.1 > build/prime.1.gz 

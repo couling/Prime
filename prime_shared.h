@@ -58,7 +58,6 @@ extern Prime chunkSize;
 extern Prime lowPrimeMax;
 
 extern int threadCount;
-extern pthread_key_t threadNumKey;
 
 extern char * initFileName;
 extern char * fileName;
@@ -73,20 +72,10 @@ extern int fileType;
 extern int silent;
 extern int verbose;
 
-
-void stdLog(char * str, ...);
-void exitError(int num, int errorNumber, char * str, ...);
-void logWarning(int errorNumber, char * str, ...);
-
-void * mallocSafe(size_t bytes);
-void * reallocSafe(void * existing, size_t bytes);
-
 char * formatFileNamePart(char * formattedFileName, int bufferSize, const char * source, Prime from, Prime to);
 char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Prime to);
-void mkdirs(char * formattedFileName);
 FILE * openFileForPrime(Prime from, Prime to);
 
 void parseArgs(int argC, char ** argV);
 char * getVersion();
-char * timeNow();
 #endif // prime_shared_h

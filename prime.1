@@ -2,13 +2,13 @@
 .SH NAME
 prime prime-slow prime-64 prime-gmp
 .SH SYNOPSIS
-prime [options ...] [initialisation file]
+prime [options ...]
 .br
 prime-slow [options ...]
 .br
-prime-64 [options ...] [initialisation file]
+prime-64 [options ...]
 .br
-prime-gmp [options ...] [initialisation file]
+prime-gmp [options ...]
 .SH DESCRIPTION
 Generates prime numbers very rapidly.  The current version is written in c.
 
@@ -38,7 +38,7 @@ Sets the output file mode to ASKII text.  Each prime number will be written on i
 Sets the output file mode to binary.  This is primarily used to generate initialisation files for later use with the \-i flag.  Each prime will be written as a binary integer in whatever format is native to the program.  For prime-64 this will be a 64 bit signed integer - the endianess will depend of the system architechture.  For prime-gmp this will prodce primes made up of multiple architecture specific integers (either 64 bit or 32 bit).  These integers are placed in low to high order of segnificance (little endian) even if this does not match the endianness of the system.  This means that the order of bytes (low to high) may be something like: 4,3,2,1,8,7,6,5,12,11,10,9,16,15,14,13.  prime-gmp does NOT use variable length numbers, it always uses 128 bit integers (2 gmp "limbs" on 64 bit systems, 4 on 32 bit systems).
 .TP
 .B \-B \-\-compressed\-out 
-Not yet implemented.  This will never be implemented for prime-slow.  Sets the output to a higly compressed format.  Each byte represents 8 odd numbers starting with the lowest in the requested range.  The low segnificant bit represents the smallest up to the high segnificance bit representing the largest.  Each bit therefore represents 1: is prime or 0: is not prime.  This is by far the most compressed format and is also the fastest to generate.
+This will never be implemented for prime-slow.  Sets the output to a higly compressed format.  Each byte represents 8 odd numbers starting with the lowest in the requested range.  The low segnificant bit represents the smallest up to the high segnificance bit representing the largest.  Each bit therefore represents 1: is prime or 0: is not prime.  This is by far the most compressed format and is also the fastest to generate.
 .TP 
 .B \-c size  \-\-chunk-size size
 Sets the chunk size to be processed.  This should be larg enough to improve performance but not so large that requires too much RAM.  Each thread will require the chunksize/16 bytes of RAM to function. Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The default chunk size is 1G (1,000,000,000 [62,500,000 bytes of RAM]).  
@@ -97,17 +97,14 @@ Sets the start of the search range. Suffix this with K,M,G,T to multiply by one 
 .B \-x n  \-\-threads\ n
 Specifies the number of threads to use (default 1).
 .SH KNOWN ISSUES
-The evaluation of time / date in naming can differ between the evaluation of file name and directory.  It's better to place time and date in only one of these two.
+Initialisation files have been removed as it was found that IO rates caused them to run very slowly.  These are planned to be re-introduced in a later version but using a different system.  The option to generate an initialisation file has been left in, but the files it generates will not be compatible with any future initialisation feature.
 .SH EXAMPLES
+.TP
+Simplest use case.  Generate every primme up to 1 billion in a file in the current working directory (single threaded).
 .TP
 Run single threaded writing every prime number up to 100 billion (100,000,000,000)
 prime \-\-end 100G \-\-use-stdout > result.txt
 .TP
-Generate initialisation file valid for numbers up to 1 billion billion (1,000,000,000,000,000,000).  
-To do this we generate every number up to 1,000,000,000 (1 billion).
-prime \-\-end 1G \-\-create\-init\-file
-.TP
-Run with 4 threads using an initialisation file (note initialisation files are NOT required for multithreading, this is just an example)
-prime \-\-start 1000T \-\-end 1001T \-\-thread-count 4 prime.0000000000000000000-0000000001000000000.dat
+Run multi threaded to generate every prime up to 1 trillion (1,000,000,000,000) writing compressed format.
 .SH AUTHOR(S)
 Philip Couling

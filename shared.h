@@ -10,6 +10,7 @@
 
 extern pthread_key_t threadNumKey;
 void initializeThreading();
+void runThread();
 
 char * timeNow();
 void mkdirs(char * formattedFileName);

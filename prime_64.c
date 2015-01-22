@@ -4,7 +4,7 @@
 #include <math.h>
 
 #include "prime_shared.h"
-
+#include "shared.h"
 
 
 Prime _str_to_prime(char * s) {
@@ -17,12 +17,6 @@ Prime _str_to_prime(char * s) {
 	}
 	
 	return value;
-}
-
-
-
-void prime_to_str(char * target, Prime value) {
-	sprintf(target, "%lld", value);
 }
 
 

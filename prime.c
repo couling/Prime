@@ -34,6 +34,7 @@ for each time a prime is touched it uses addition and not division.
 #include <unistd.h>
 
 #include "prime_shared.h"
+#include "shared.h"
 
 //#define VERBOSE_DEBUG
 
@@ -41,6 +42,7 @@ for each time a prime is touched it uses addition and not division.
 size_t APPLY_DEBUG_MASK; // This used to be a constand, but now we use a variable set in main
 #define SCAN_DEBUG_MASK 0x3FFFFF
 
+#define WRITE_BUFFER_SIZE 0x100000
 
 // For threading
 typedef struct ThreadDescriptor {
@@ -60,10 +62,10 @@ static off_t initFileSize;
 
 
 //  Functions for writing primes
-typedef void (* WritePrimeFunction)(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
-static void writePrimeText(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file);
-static void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
-static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, FILE * file );
+typedef void (* WritePrimeFunction)(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file);
+static void writePrimeText(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file);
+static void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file );
+static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file );
 
 static WritePrimeFunction writePrime = writePrimeText;
 
@@ -86,7 +88,7 @@ typedef struct {            // All header fields are text (UTF-8) NOT binary
 } __attribute__ ((packed)) CompressedBinaryHeader;
 
 // The single file to write to (if single file is enabled);
-static FILE * theSingleFile;
+static int theSingleFile;
 
 
 // All primes less than or sqrt(endValue)
@@ -212,7 +214,7 @@ static void populateLowPrimeMap() {
             PrimeString maxLowPrime;
             prime_to_str(maxLowPrime, primes[lowPrimeCount-1]);
             stdLog("Using %zd low primes - max %s", lowPrimeCount, maxLowPrime);
-            stdLog("lowPrimeMapSize: %zd", prime_get_num(lowPrimeMapSize));
+            stdLog("lowPrimeMapSize: %zd",(size_t) prime_get_num(lowPrimeMapSize));
             /*char bString[9];
             bString[8] = 0;
             for (int i = 0; i < prime_get_num(lowPrimeMapSize); ++i) {
@@ -332,114 +334,17 @@ static void finalSelf() {
 
 
 
-static void initializeFromFile() {
-    if (!silent) stdLog("Initializing from file (%s)", initFileName);
-
-    // Open the file
-    initFileHandle = open(initFileName, O_RDONLY);
-    if (initFileHandle < 0) exitError(1, errno, "failed to open file %s", initFileName);
-    
-    // Get the file size and check that it makes sense
-    struct stat statBuffer;
-    if ( fstat(initFileHandle, &statBuffer) < 0 ) exitError(1, errno, "failed to stat file %s", initFileName);
-    
-    initFileSize = statBuffer.st_size;
-    if ( initFileSize % sizeof(Prime) ) 
-        exitError(1, 0, "unexpected file length %s (%lld) this should be divisible by %zd", 
-            initFileName, (long long)initFileSize, sizeof(Prime));
-
-    primeCount = primesAllocated = initFileSize / sizeof(Prime);
-    if ( primeCount < 2 )
-        exitError(1, 0, "unexpected file length %s (%lld) should be at lease two primes long %zd bytes",
-            initFileName, (long long) initFileSize, sizeof(Prime) * 2);
-
-    // Memory map the full file
-    primes = mmap(0, initFileSize, PROT_READ, MAP_SHARED, initFileHandle, 0);
-    if (primes == MAP_FAILED) exitError(1, errno, "failed to memory map init file %s", initFileName);
-
-    
-    // Perform sanity checks on file.
-    if (verbose) stdLog("File memory mapped (%s) ... checking file", initFileName);
-    
-    // The first prime is always 3 the second always 5
-    // This is used as a sort of file signature and helps ensure we're using the correct format.
-    Prime comp;
-    prime_set_num(comp, 3);
-    if (!prime_eq(primes[0], comp)) {
-        PrimeString s;
-        prime_to_str(s, primes[0]);
-        exitError(1, 0, "First prime is not 3 but %s in %s", s, initFileName);
-    }
-    else if (verbose) stdLog("First prime is 3");
-    prime_set_num(comp, 5);
-    if (!prime_eq(primes[1], comp)) {
-        PrimeString s;
-        prime_to_str(s, primes[1]);
-        exitError(1, 0, "Second prime is not 5 but %s in %s", s, initFileName);
-    }
-    else if (verbose) stdLog("Second prime is 5");
-
-    // Primes are listed in ascending numerical order and are all odd.
-    size_t lowI = 0, highI = primesAllocated -1;
-    while (lowI < highI) {
-        size_t i = (lowI + highI) / 2;
-        if (prime_gt(primes[i], primes[highI])) {
-            PrimeString p1, p2;
-            prime_to_str(p1, primes[i]);
-            prime_to_str(p2, primes[highI]);
-            exitError(1, 0, "primes[%zd] (%s) is out of sequence with primes[%zd] (%s) in %s", 
-                i, p1, highI, p2, initFileName);
-        }
-        if (prime_lt(primes[i], primes[lowI])) {
-            PrimeString p1, p2;
-            prime_to_str(p1, primes[i]);
-            prime_to_str(p2, primes[lowI]);
-            exitError(1, 0, "primes[%zd] (%s) is out of sequence with primes[%zd] (%s) in %s", 
-                i, p1, lowI, p2, initFileName);
-        }
-        if (!(prime_is_odd(primes[i]))) {
-            PrimeString s;
-            prime_to_str(s, primes[i]);
-            exitError(1, 0, "primes[%zd] (%s) is even in %s", i, s, initFileName);
-        }
-        Prime sqr;
-        prime_mul_prime(sqr,primes[i],primes[i]);
-        if (prime_lt(sqr,endValue)) lowI = i;
-        else if (prime_gt(sqr,endValue)) highI = i;
-        else highI = lowI = i;
-    }
-    primeCount = lowI+1;
-    if (verbose) stdLog("All (useful) primes are odd and in sequence");
-
-    // The file reaches a high enough prime for the task in hand ie: sqrt(endValue)
-    Prime maxValue;
-    prime_mul_prime(maxValue, primes[primeCount-1], primes[primeCount-1]);
-    if (prime_lt(maxValue, endValue)) {
-        PrimeString s;
-        prime_to_str(s, maxValue);
-        exitError(1, 0, "Prime initialisation too small. %s is only large enough for primes up to %s", 
-            initFileName, s );
-    }
-    else if (verbose) stdLog("Largest prime is larger than sqrt(endValue)");
-
-    if (verbose) {
-        stdLog("Checks passed (%s)", initFileName);
-        stdLog("File contains %zu primes of which %zu will be used", primesAllocated, primeCount);
-    }
+static void writeSafe(int file, const void * buffer, size_t size) {
+	if (write(file, buffer, size) != size) exitError(1, errno, "Failed to write prime file");
 }
 
 
 
-static void finalFile() {
-    // Unmap the file and close the handle
-    if ( munmap( primes, initFileSize) ) exitError(1, errno, "failed to unmap file %s", initFileName);
-    if ( close(initFileHandle) )  exitError(1, errno, "failed to close file %s", initFileName);
-    free(lowPrimeMap);
-}
+static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, int file) {
+	char writeBuffer[WRITE_BUFFER_SIZE];
+	size_t remainingBuffer = WRITE_BUFFER_SIZE;
+    char * bufferWritePos = writeBuffer;
 
-
-
-static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
     int threadNum;
     if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
@@ -449,7 +354,10 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
     Prime prime_2;
     prime_set_num(prime_2, 2);
     if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
-        fprintf(file, "2\n");
+		bufferWritePos[0] = '2';
+		bufferWritePos[1] = '\n';
+		bufferWritePos += 2;
+		remainingBuffer -= 2;
     }
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
@@ -457,31 +365,46 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
             stdLog("Writing primes as text %02.2f%%", 100 * ((double) i)/((double) range));
 
         if (bitmap[i]) {
+	        if (remainingBuffer < PRIME_STRING_SIZE * bitCount[bitmap[i]]) {
+				writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
+            	bufferWritePos = writeBuffer;
+           	 	remainingBuffer = WRITE_BUFFER_SIZE;
+        	}
             for (int j = 1; j < 16; j+=2) {
                 if (bitmap[i] & checkMask[j]) {
                     Prime value;
                     getPrimeFromMap(value, from, i, j);
-                    PrimeString s;
-                    prime_to_str(s, value);
-                    fprintf(file, "%s\n", s);
+                    int bytesWriten = prime_to_str(bufferWritePos, value);
+					bufferWritePos[bytesWriten] = '\n';
+					bufferWritePos += bytesWriten + 1;
+					remainingBuffer -= bytesWriten + 1;
                 }
             }
         }
     }
 
     if (bitmap[endRange]) {
+       if (remainingBuffer < PRIME_STRING_SIZE * bitCount[bitmap[endRange]]) {
+            writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
+            bufferWritePos = writeBuffer;
+            remainingBuffer = WRITE_BUFFER_SIZE;
+		}
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
                 Prime value;
                 getPrimeFromMap(value, from, endRange, j);
                 if (prime_lt(value, endValue)) {
-                    PrimeString s;
-                    prime_to_str(s, value);
-                    fprintf(file, "%s\n", s);
-                }
+                    int bytesWriten = prime_to_str(bufferWritePos, value);
+                    bufferWritePos[bytesWriten] = '\n';
+                    bufferWritePos += bytesWriten + 1;
+					remainingBuffer -= bytesWriten + 1;
+				}
             }
         }
     }
+
+	writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
+
     if (singleFile && threadCount > 1) {
         sem_post(threads[threadNum].nextThreadWriteSemaphore);
     }
@@ -489,16 +412,19 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
 
 
 
-static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file) {
+static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, int file) {
+	Prime buffer[WRITE_BUFFER_SIZE / sizeof(Prime)];
+	int count = 0;
+
     int threadNum;
     if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
         sem_wait(&threads[threadNum].writeSemaphore);
     }
-    Prime prime_2;
-    prime_set_num(prime_2, 2);
-    if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
-        fwrite(&prime_2, sizeof(Prime), 1, file);
+
+    prime_set_num(buffer[0], 2);
+    if (prime_le(from, buffer[0]) && prime_ge(to, buffer[0]) && !disallow2) {
+        count = 1;
     }
     size_t endRange = range -1;
     for (size_t i = 0; i < endRange; ++i) {
@@ -506,32 +432,41 @@ static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned 
             if (verbose) stdLog("Writing primes %02.2f%%", 100 * ((double) i)/((double) range));
         }
         if (bitmap[i]) {
+            if (count + bitCount[bitmap[i]] > WRITE_BUFFER_SIZE / sizeof(Prime)) {
+                writeSafe(file, buffer, count * sizeof(Prime));
+                count = 0;
+            }
             for (int j = 1; j < 16; j+=2) {
                 if (bitmap[i] & checkMask[j]) {
-                    Prime value;
-                    getPrimeFromMap(value, from, i, j);
-                    fwrite(&value, sizeof(Prime), 1, file);
+                    getPrimeFromMap(buffer[count], from, i, j);
+					++count;
                 }
             }
         }
     }
     if (bitmap[endRange]) {
+	    if (count + bitCount[bitmap[endRange]] >= WRITE_BUFFER_SIZE / sizeof(Prime)) {
+            writeSafe(file, buffer, count * sizeof(Prime));
+            count = 0;
+        }
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
-                Prime value;
-                getPrimeFromMap(value, from, endRange, j);
-                if (prime_lt(value, endValue)) fwrite(&value, sizeof(Prime), 1, file);
+                getPrimeFromMap(buffer[count], from, endRange, j);
+                if (prime_lt(buffer[count], endValue)) ++count;
             }
         }
     }
-    if (singleFile && threadCount > 1) {
+	
+    writeSafe(file, buffer, count * sizeof(Prime));
+	
+	if (singleFile && threadCount > 1) {
         sem_post(threads[threadNum].nextThreadWriteSemaphore);
     }
 }
 
 
 
-static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, FILE * file ) {
+static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, int file ) {
     int threadNum;
     if (singleFile && threadCount > 1) {
         threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
@@ -636,8 +571,8 @@ static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsig
     snprintf(header.primeCount, sizeof(header.primeCount),"%zd", foundPrimes);
     snprintf(header.textSize, sizeof(header.textSize),"%zd", textSize);
     
-    fwrite(&header, sizeof(CompressedBinaryHeader), 1, file);
-    fwrite(bitmap, sizeof(unsigned char), range, file);
+    writeSafe(file, &header, sizeof(CompressedBinaryHeader));
+    writeSafe(file, bitmap, range);
     if (singleFile && threadCount > 1) {
         sem_post(threads[threadNum].nextThreadWriteSemaphore);
     }
@@ -645,7 +580,7 @@ static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsig
 
 
 
-static void process(Prime from, Prime to, FILE * file) {
+static void process(Prime from, Prime to, int file) {
     Prime tmp;
 
     if (verbose || (!silent && singleFile)) {
@@ -738,18 +673,18 @@ static void process(Prime from, Prime to, FILE * file) {
     }
 
     if (lowPrimeCount) {
-        size_t currentLowPrime = lowPrimeCount-1;
-        while (currentLowPrime >= 0 && prime_ge(primes[currentLowPrime],from)) {
+        stdLog("Fixing low primes");
+        size_t currentLowPrime = lowPrimeCount;
+        while (currentLowPrime > 0 && prime_ge(primes[currentLowPrime-1],from)) {
             Prime v1, v2;
-            prime_sub_prime(v1, primes[currentLowPrime], from);
+            prime_sub_prime(v1, primes[currentLowPrime-1], from);
             prime_div_16(v2, v1);
             bitmap[prime_get_num(v2)] |= checkMask[prime_get_num(v1) & 0x0F];
-            currentLowPrime--;
+            --currentLowPrime;
         }
     }
 
     writePrime(from, to, range, bitmap, file);
-
     
     if (verbose) {
         PrimeString fromString;
@@ -780,9 +715,9 @@ static void * processAllChunks(void * threadPt) {
         if (chunkNum % threadCount == (thread->threadNum - 1)) {
             if (singleFile) process(from, to, theSingleFile);
             else {
-                FILE * file = openFileForPrime(from, to);
+                int file = openFileForPrime(from, to);
                 process(from, to, file);
-                if (fclose(file)) {
+                if (close(file)) {
                     exitError(2, errno, "closing prime file reported error - contents may have been truncated");
                 }
             }
@@ -793,12 +728,11 @@ static void * processAllChunks(void * threadPt) {
     }
     if (prime_lt(from, endValue)) {
         if (chunkNum % threadCount == (thread->threadNum - 1)) {
-            if (useStdout) process(from, endValue, stdout);
-            else if (singleFile) process(from, endValue, theSingleFile);
+            if (singleFile) process(from, endValue, theSingleFile);
             else {
-                FILE* file = openFileForPrime(from, endValue);
+                int file = openFileForPrime(from, endValue);
                 process(from, endValue, file);
-                if (fclose(file)) {
+                if (close(file)) {
                     exitError(2, errno, "closing prime file reported error - contents may have been truncated");
                 }
 
@@ -883,13 +817,13 @@ int main(int argC, char ** argV) {
 
 
     if (singleFile) {
-        if (useStdout) theSingleFile = stdout;
+        if (useStdout) theSingleFile = STDOUT_FILENO;
         else theSingleFile = openFileForPrime(startValue, endValue);
     }
 
     // Initialise the primes array
-    if (initFileName) initializeFromFile();
-    else initializeSelf();
+    if (initFileName) exitError(1,0,"Init from file was removed in V1.2");
+    initializeSelf();
     populateLowPrimeMap();
 
     // Set the debug mask, this is used for verbose priting
@@ -906,13 +840,12 @@ int main(int argC, char ** argV) {
     runThreads();
 
     // Free the primes array
-    if (initFileName) finalFile();
-    else finalSelf();
+    finalSelf();
 
     // Close the file (this can take some time if it has been cached by the os)
     if (singleFile) {
         // This will close stdout if useStdOut was selected.
-        if (fclose(theSingleFile)) {
+        if (close(theSingleFile)) {
             exitError(2, errno, "closing prime file reported error - contents may have been truncated");
         }
     }

@@ -1,6 +1,13 @@
 #ifndef shared_h
 #define shared_h
 
+#ifndef  _XOPEN_SOURCE
+#define  _XOPEN_SOURCE
+#endif
+
+#include <stdarg.h>
+#include <pthread.h>
+
 extern pthread_key_t threadNumKey;
 void initializeThreading();
 

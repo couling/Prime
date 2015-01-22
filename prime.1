@@ -4,7 +4,7 @@ prime prime-slow prime-64 prime-gmp
 .SH SYNOPSIS
 prime [options ...] [initialisation file]
 .br
-prime-slow [options ...] [initialisation file]
+prime-slow [options ...]
 .br
 prime-64 [options ...] [initialisation file]
 .br
@@ -16,7 +16,7 @@ Generates prime numbers very rapidly.  The current version is written in c.
 is the default prime number generator (this will be set up using alternatives but currently is a simple symlink in the package)
 
 .B prime-slow 
-is a very simplistic generator which uses 64 bit signed integers as primes.  The main purpose of this program is for verification.  The code is simple so the results are very reliable. It attempts to factor each odd number by every prime up to the square root.
+is a very simplistic generator which uses 64 bit signed integers as primes.  The main purpose of this program is for verification.  The code is simple to avoid any chance of bugs and so the results are very trustworty. It attempts to factor each odd number by every prime up to the square root.  Note that many of the options listed here do not affect prime-slow.
 
 .B prime-64 
 is a very fast generator which processes potential primes in large blocks (default 1 billion - 1,000,000,000).  This is extremely fast and can easily fill hard drives with prime numbers at the end of its 64 bit signed integer range.

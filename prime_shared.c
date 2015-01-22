@@ -1,6 +1,9 @@
+#include "prime_shared.h"
+
 #define  _XOPEN_SOURCE
 #include <time.h>
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -11,7 +14,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 
-#include "prime_shared.h"
+#include "shared.h"
 
 // Config parameters
 
@@ -196,7 +199,7 @@ char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Pri
 
 
 
-FILE * openFileForPrime(Prime from, Prime to) {
+int openFileForPrime(Prime from, Prime to) {
     // Evaluate the file name
     char formattedFileName[FILENAME_MAX];
     formatFileName(formattedFileName, FILENAME_MAX, from, to);
@@ -206,7 +209,7 @@ FILE * openFileForPrime(Prime from, Prime to) {
 
     // Create the file
     if (!silent) stdLog("Starting new prime file: %s", formattedFileName);
-    FILE * file = fopen(formattedFileName, (allowClobber ? "w" :"wx"));
+    int file = open(formattedFileName, O_WRONLY | O_CREAT | ( allowClobber ? O_TRUNC : O_EXCL ), 0644);
     if (!file) exitError(2, errno, "Could not create new file: %s", formattedFileName);
     return file;
 }
@@ -281,7 +284,7 @@ static void printUsage(int argC, char ** argV) {
             "                           suffix this with k,m,g,t to multiply by\n"
             "                           one thousand, million, billion or trillion\n"
             "                           (affects file size when using -F)\n"
-            "  -l --low-prime-max       The maximum value for low primes."
+            "  -l --low-prime-max       The maximum value for low primes.\n"
             "                           This can not be set above 20 (ie: 19)\n"
             "  -x --threads             Specify the number of threads to use (default 1)\n"
             "  -i --init-file           Specify an initialisation file generated with -b previously\n"

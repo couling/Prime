@@ -3,8 +3,9 @@
 #include<errno.h>
 
 #include "prime_shared.h"
+#include "shared.h"
 
-char * prime_to_str(char * s, Prime prime) {
+int prime_to_str(char * s, Prime prime) {
     Prime buffer;
     mpn_copyd(buffer,prime,PRIME_LIMB_COUNT);
     mp_size_t i = PRIME_LIMB_COUNT;
@@ -12,7 +13,7 @@ char * prime_to_str(char * s, Prime prime) {
     mp_size_t x = mpn_get_str(s,10,buffer,i);
     for (i = 0; i < x; ++i) s[i] += '0';
     s[i] = '\0';
-    return s + x;
+    return x;
 }
 
 

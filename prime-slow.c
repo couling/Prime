@@ -10,12 +10,13 @@ than the number's square root.
 This was obsoleted by bitprime.c
 
 */
-
+#define _POSIX_C_SOURCE 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <getopt.h>
 
+#include "shared.h"
 #include "prime_shared.h"
 
 #define ALLOC_UNIT 128;
@@ -27,7 +28,7 @@ Prime * primes;
 
 
 void initializeSelf(FILE * file) {
-    stdLog("Running Self initialisation for %lld (inc) to %lld (ex)", startValue, endValue);
+    if (!silent) stdLog("Running Self initialisation for %lld (inc) to %lld (ex)", startValue, endValue);
 
     primesAllocated = ALLOC_UNIT;
     primes = mallocSafe(primesAllocated * sizeof(long long));
@@ -44,7 +45,7 @@ void initializeSelf(FILE * file) {
     long long value = 7ll;
     while (1){
         long long nextPrimeRequired = primes[maxUsable] * primes[maxUsable];
-        stdLog("Checking against %d primes - max %lld - checking value %lld",
+        if (!silent) stdLog("Checking against %d primes - max %lld - checking value %lld",
             maxUsable, primes[maxUsable-1], value);
         while (value < nextPrimeRequired ) {
             int i=0;
@@ -71,7 +72,7 @@ void initializeSelf(FILE * file) {
     Complete:
 
     if (startValue < value) {
-        stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", startValue, value);
+        if (!silent) stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)", startValue, value);
         startValue = value;
     }
     else {
@@ -79,17 +80,17 @@ void initializeSelf(FILE * file) {
         while (primes[maxUsable] * primes[maxUsable] < startValue) ++maxUsable;
     }
 
-    stdLog("Prime array now full with %d primes", primeCount);
+    if (!silent) stdLog("Prime array now full with %d primes", primeCount);
 
 }
 
 
 void process(FILE * file) {
-    stdLog("Running process for %lld (inc) to %lld (ex)", startValue, endValue);
+    if (!silent) stdLog("Running process for %lld (inc) to %lld (ex)", startValue, endValue);
     long long value = startValue;
     while (value < endValue) {
         long long nextPrimeRequired = primes[maxUsable] * primes[maxUsable];
-        stdLog("Checking against %d primes - max %lld - checking value %lld",
+        if (!silent) stdLog("Checking against %d primes - max %lld - checking value %lld",
              maxUsable, primes[maxUsable-1], value);
         while (value < nextPrimeRequired) {
             if (value >= endValue) break;
@@ -104,7 +105,7 @@ void process(FILE * file) {
         ++maxUsable;
     }
 
-    stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)",
+    if (!silent) stdLog("All primes have now been discovered between %lld (inc) and %lld (ex)",
         startValue, endValue);
 
 }
@@ -126,11 +127,11 @@ int main(int argC, char ** argV) {
     
     FILE * theFile;
     if (useStdout) theFile = stdout;
-    else theFile = openFileForPrime(startValue, endValue);
+    else theFile = fdopen(openFileForPrime(startValue, endValue), "w");
     
     initializeSelf(theFile);
     process(theFile);
-    final();
+    free(primes);
     fclose(theFile);
     return 0;
 }

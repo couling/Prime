@@ -1,3 +1,19 @@
+#include "shared.h"
+
+#include <time.h>
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <getopt.h>
+#include <stdarg.h>
+#include <pthread.h>
+
+#include <sys/file.h>
+#include <sys/stat.h>
+
+
 // For thread local storage
 pthread_key_t threadNumKey;
 

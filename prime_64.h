@@ -1,19 +1,18 @@
 #ifndef prime_long_long_h
 #define prime_long_long_h
 
-#define PRIME_ARCHITECTURE Long Long Int
+#define PRIME_ARCHITECTURE Unsigned Long Long Int
 
 #define PRIME_LIMB_SIZE sizeof(long long) 
 #define PRIME_LIMB_COUNT ((size_t) 1)
 
-typedef long long Prime;
+typedef unsigned long long Prime;
 
 #define prime_set_num(target, value) target = value
 #define prime_get_num(value) ( value )
 #define str_to_prime(target, value) target = _str_to_prime(value)
 Prime _str_to_prime(char * s);
-void prime_to_str(char * target, Prime value);
-
+#define prime_to_str(target, value) snprintf(target, PRIME_STRING_SIZE, "%llu", value) 
 
 #define prime_add_num(target, in1, in2) ( target = in1 + ( in2 ) )
 #define prime_add_prime(target, in1, in2) ( target = in1 + in2 )

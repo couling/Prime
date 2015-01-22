@@ -74,7 +74,7 @@ extern int verbose;
 
 char * formatFileNamePart(char * formattedFileName, int bufferSize, const char * source, Prime from, Prime to);
 char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Prime to);
-FILE * openFileForPrime(Prime from, Prime to);
+int openFileForPrime(Prime from, Prime to);
 
 void parseArgs(int argC, char ** argV);
 char * getVersion();

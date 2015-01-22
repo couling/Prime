@@ -10,7 +10,7 @@
 #define PRIME_LIMB_COUNT ( PRIME_SIZE / PRIME_LIMB_SIZE / 8 )
 typedef mp_limb_t Prime[PRIME_LIMB_COUNT];
 
-char * prime_to_str(char * s, Prime prime);
+int prime_to_str(char * s, Prime prime);
 void str_to_prime(Prime prime, char * s);
 void prime_set_num(Prime prime, mp_limb_t in);
 #define prime_get_num(prime) (prime[0])

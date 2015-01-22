@@ -12,16 +12,17 @@ prime-gmp [options ...] [initialisation file]
 .SH DESCRIPTION
 Generates prime numbers very rapidly.  The current version is written in c.
 
-.B prime 
+.B prime
 is the default prime number generator (this will be set up using alternatives but currently is a simple symlink in the package)
 
-.B prime-slow 
+.B prime-slow
 is a very simplistic generator which uses 64 bit signed integers as primes.  The main purpose of this program is for verification.  The code is simple to avoid any chance of bugs and so the results are very trustworty. It attempts to factor each odd number by every prime up to the square root.  Note that many of the options listed here do not affect prime-slow.
 
-.B prime-64 
+.B prime-64
 is a very fast generator which processes potential primes in large blocks (default 1 billion - 1,000,000,000).  This is extremely fast and can easily fill hard drives with prime numbers at the end of its 64 bit signed integer range.
 
-prime-gmp is a little slower than prime-64 but is based on the same technique. The main difference is that all operations are carried out using low level libgmp functions so that primes are 128 bit.  The main limitation to the maximum prime this can generate is based on the size of initialization.  When using self initialisation, this is generated in a single threaded fassion and in process memory.  As an alternative you can generate a very large initialisation file which can then be memory mapped. See
+.B prime-gmp
+is a little slower than prime-64 but is based on the same technique. The main difference is that all operations are carried out using low level libgmp functions so that primes are 128 bit.  The main limitation to the maximum prime this can generate is based on the size of initialization.  When using self initialisation, this is generated in a single threaded fassion and in process memory.  As an alternative you can generate a very large initialisation file which can then be memory mapped. See
 .B \-i 
 flag
 \.
@@ -65,7 +66,8 @@ Equivalent to \-bfs 3 \-n init\-%9e9OG.dat
 .TP
 .B \-k \-\-clobber Allow overwriting of existing files.  By default prime will cause the job to abort.
 .TP
-.B \-l \-\-low\-prime\-max Set the size of the largest "low prime".  This is 19 by default and has a hard coded max of 23 due to memory constraints.  Low primes require a bitmap to be created and shared between the threads.  The size of the bitmap is the product of every low prime (excluding 2), so the default "19" causes a bitmap of 3*5*7*11*13*17*19 = 4849845 = 4.63MiB.  The max of 23 requires 2.18GiB.
+.B \-l \-\-low\-prime\-max 
+Set the size of the largest "low prime".  This is 19 by default and has a hard coded max of 23 due to memory constraints.  Low primes require a bitmap to be created and shared between the threads.  The size of the bitmap is the product of every low prime (excluding 2), so the default "19" causes a bitmap of 3*5*7*11*13*17*19 = 4849845 = 4.63MiB.  The max of 23 requires 2.18GiB.
 .TP
 .B \-n \-\-file\-name Sets the name pattern for the output file name.  This recognises an escape character "%" followed by one of the following:
     %%        a single %

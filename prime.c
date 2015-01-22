@@ -673,7 +673,7 @@ static void process(Prime from, Prime to, int file) {
     }
 
     if (lowPrimeCount) {
-        stdLog("Fixing low primes");
+        if (verbose) stdLog("Fixing low primes");
         size_t currentLowPrime = lowPrimeCount;
         while (currentLowPrime > 0 && prime_ge(primes[currentLowPrime-1],from)) {
             Prime v1, v2;
@@ -797,6 +797,7 @@ void runThreads() {
 
 
 int main(int argC, char ** argV) {
+	initializeThreading();
     parseArgs(argC, argV);
 
     // Set the output mode

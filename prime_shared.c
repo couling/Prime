@@ -33,8 +33,11 @@ int useStdout;
 int singleFile;
 int fileType = FILE_TYPE_TEXT;
 
+
+#ifndef STRIP_LOGGING
 int silent;
 int verbose;
+#endif
 
 
 
@@ -289,10 +292,12 @@ static void printUsage(int argC, char ** argV) {
             "  -x --threads             Specify the number of threads to use (default 1)\n"
             "  -i --init-file           Specify an initialisation file generated with -b previously\n"
             "\n"
+#ifndef STRIP_LOGGING
             "Debug & logging options:\n"
             "  -q --quiet                Same as -s\n"
             "  -v --verbose              Verbose output, meaningless with -s or -q\n"
             "\n"
+#endif
             "Other:\n"
             "  -h --help                 Show this help and exit\n"
             "  -V --version              Print the program version and exit\n", argV[0]);
@@ -352,9 +357,10 @@ void parseArgs(int argC, char ** argV) {
     singleFile = 0;
     fileType   = FILE_TYPE_TEXT;
 
+#ifndef STRIP_LOGGING
     silent  = 0;
     verbose = 0;
-
+#endif
 
     prime_set_num(startValue, 0);
     prime_set_num(endValue,   1000000000);
@@ -377,8 +383,10 @@ void parseArgs(int argC, char ** argV) {
             { "directory", required_argument, 0, 'd'},
             { "file-name", required_argument, 0, 'n'},
             { "init-file", required_argument, 0, 'i'},
+#ifndef STRIP_LOGGING
             { "quiet", no_argument, 0, 'q' },
             { "verbose", no_argument, 0, 'v' },
+#endif
             { "single-file", no_argument, 0, 'f' },
             { "multi-file", no_argument, 0, 'F' },
             { "use-stdout", no_argument, 0, 'p'},
@@ -391,8 +399,12 @@ void parseArgs(int argC, char ** argV) {
             { "version", no_argument, 0, 'V'},
             { 0, 0, 0, 0 }
     };
-    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhkIV";
 
+#ifndef STRIP_LOGGING
+    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhkIV";
+#else
+    static char * shortOptions = "s:e:c:d:n:i:x:fFpabBhkIV";
+#endif
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
     opterr = 0;
@@ -414,8 +426,10 @@ void parseArgs(int argC, char ** argV) {
             break;
         }
 
+#ifndef STRIP_LOGGING
         case 'q': silent = 1;                 verbose = 0;        break;
         case 'v': verbose = !silent;                              break;
+#endif
         case 'f': useStdout = 0;              singleFile = 1;     break;
         case 'F': useStdout = 0;              singleFile = 0;     break;
         case 'p': useStdout = 1;              singleFile = 1;     break;

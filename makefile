@@ -25,6 +25,9 @@ package: build/${package}
 build/prime-64: prime.c $(depends_prime_64)
 	gcc -o $@ $(flags) $(arch_64_injection) $(c_files) $(lib_64)
 
+build/prime-64-nolog: prime.c $(depends_prime_64)
+	gcc -o $@ $(flags) $(arch_64_injection) -DSTRIP_LOGGING $(c_files) $(lib_64)
+
 build/prime-gmp: prime.c $(depends_prime_128)
 	gcc -o $@ $(flags) $(arch_128_injection) $(c_files) $(lib_128)
 

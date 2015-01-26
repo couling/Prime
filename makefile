@@ -1,8 +1,8 @@
 flags= -std=c99 -O3 -s
 c_files= $(filter %.c, $^)
 depends_basic= shared.c shared.h makefile | build
-depends_prime_64=  prime_64.c prime_64.h prime_shared.c prime_shared.h $(depends_basic)
-depends_prime_128=  prime_gmp.c prime_gmp.h prime_shared.c prime_shared.h $(depends_basic)
+depends_prime_64= output.h prime_64.c prime_64.h prime_shared.c prime_shared.h $(depends_basic)
+depends_prime_128= output.h prime_gmp.c prime_gmp.h prime_shared.c prime_shared.h $(depends_basic)
 
 gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
 arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter ${gcc_arch},x86}, ${if ${filter ${gcc_arch},arm},armhf}}
@@ -36,6 +36,9 @@ build/prime-slow: prime-slow.c $(depends_prime_64)
 
 build/prime-check: prime-check.c $(depends_basic)
 	gcc -o $@ $(flags) $(c_files) $(lib_basic)
+	
+build/prime-decompress-64: prime-decompress.c output.h $(depends_prime_64)
+	gcc -o $@ $(flags) $(c_files) $(arch_64_injection) $(lib_basic) $(lib_64)
 
 build/prime.1.gz: prime.1
 	gzip -9c prime.1 > build/prime.1.gz 

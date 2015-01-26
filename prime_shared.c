@@ -25,6 +25,13 @@ Prime lowPrimeMax;
 
 int threadCount;
 
+static char * defaultFileNames [] = {
+    "prime.%18e0o-%18e0O.",
+    "prime.%15e3oK-%15e3OK.",
+    "prime.%12e6oM-%12e6OM.",
+    "prime.%9e9oG-%9e9OG."
+};
+
 int allowClobber;
 char * dirName;
 char * fileName;
@@ -33,21 +40,13 @@ int useStdout;
 int singleFile;
 int fileType = FILE_TYPE_TEXT;
 
+char ** inputFiles;
+int inputFileCount;
 
 #ifndef STRIP_LOGGING
 int silent;
 int verbose;
 #endif
-
-
-
-static char * defaultFileNames [] = {
-    "prime.%18e0o-%18e0O.",
-    "prime.%15e3oK-%15e3OK.",
-    "prime.%12e6oM-%12e6OM.",
-    "prime.%9e9oG-%9e9OG."
-};
-
 
 
 static void openFilesnprintf(char * base, char ** target, int bufferSize, const char * str, ...) {
@@ -213,7 +212,7 @@ int openFileForPrime(Prime from, Prime to) {
     // Create the file
     if (!silent) stdLog("Starting new prime file: %s", formattedFileName);
     int file = open(formattedFileName, O_WRONLY | O_CREAT | ( allowClobber ? O_TRUNC : O_EXCL ), 0644);
-    if (!file) exitError(2, errno, "Could not create new file: %s", formattedFileName);
+    if (file == -1) exitError(2, errno, "Could not create new file: %s", formattedFileName);
     return file;
 }
 
@@ -242,14 +241,6 @@ char * getVersion() {
     return buffer;
 }
 
-
-static void printVersion() {
-    fprintf(stderr, 
-    STR_VALUE(PRIME_PROGRAM_NAME) " (" STR_VALUE(PRIME_PROGRAM_VERSION) ")"
-    "\nCopyright (C) 2013 Philip Couling"
-    "\nArchitechture: " STR_VALUE(PRIME_ARCHITECTURE)
-    "\nPrime size: %zd bit\n", sizeof(Prime) * 8);
-}
 
 
 static void printUsage(int argC, char ** argV) {
@@ -483,10 +474,9 @@ void parseArgs(int argC, char ** argV) {
         fileName = tmpFileName;
     }
 
+    inputFileCount = argC - optind;
+    inputFiles = argV + optind;
 
-    if (optind != argC) {
-        exitError(1 , 0, "invalid option %s", argV[optind]);
-    }
 
     if (threadCount < 1) exitError(1, 0, "invalid thread-count (%d). Must be 1 or more.", threadCount);
 }

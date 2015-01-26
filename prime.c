@@ -34,6 +34,7 @@ for each time a prime is touched it uses addition and not division.
 
 #include "prime_shared.h"
 #include "shared.h"
+#include "output.h"
 
 //#define VERBOSE_DEBUG
 
@@ -63,24 +64,6 @@ static void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t rang
 static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file );
 
 static WritePrimeFunction writePrime = writePrimeText;
-
-// Header for compressed binary
-typedef struct {            // All header fields are text (UTF-8) NOT binary
-    char signature[32];     // Literally: "Compressed Prime Binary: 1.0"
-    char headerSize[32];    // The size of this structure: sizeof(CompressedBinaryHeader)
-                            // Extensions to this format may increase this from 1024 adding additional fields at the endRange
-                            // Extensions should keep this size as a multiple of 1024.
-    char dataBlockSize[32]; // the size of the data block following this header (protection against truncated files and allowance for concatenated files).
-    char fromToSize[32];    // The size of the from and to fields in this header (ie: 256)
-    char primeCount[32];    // The number of primes found in this file
-    char textSize[32];      // The number of bytes in an askii representation of this file this includes one byte per prime for a delimiting \n character.
-    char comments[288];     // Anything may be written here as long as it's UTF-8
-    char skip[32];          // Comma separated list of primes who's multiples are not in the bitmap.  This is current just "2".
-    char from[256];         // The offset for this bitmap including skipped numbers. 
-                            // Eg: from "1000" skip "2" - the first bit will represent 1001.
-                            // Eg: from "5000" skip "2,3" - the first bit will represent 5003.
-    char to[256];           // The upper limit of this data file.  De-compressors MUST ignore all bits >= to this.
-} __attribute__ ((packed)) CompressedBinaryHeader;
 
 // The single file to write to (if single file is enabled);
 static int theSingleFile;
@@ -150,14 +133,6 @@ static void applyPrime(Prime prime, Prime offset, unsigned char * map, size_t ma
         map[prime_get_num(tmp)] &= removeMask[prime_get_num(value) & 0x0F];
         prime_add_prime(value, value, stepSize);
     }
-}
-
-
-#define getPrimeFromMap(value, offset, byteIndex, bitIndex) {\
-    prime_set_num(value, byteIndex);\
-    prime_mul_16(value, value);\
-    prime_add_num(value, value, bitIndex);\
-    prime_add_prime(value, value, offset);\
 }
 
 
@@ -369,10 +344,10 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
                 if (bitmap[i] & checkMask[j]) {
                     Prime value;
                     getPrimeFromMap(value, from, i, j);
-                    int bytesWriten = prime_to_str(bufferWritePos, value);
-                    bufferWritePos[bytesWriten] = '\n';
-                    bufferWritePos += bytesWriten + 1;
-                    remainingBuffer -= bytesWriten + 1;
+                    int bytesWritten = prime_to_str(bufferWritePos, value);
+                    bufferWritePos[bytesWritten] = '\n';
+                    bufferWritePos += bytesWritten + 1;
+                    remainingBuffer -= bytesWritten + 1;
                 }
             }
         }
@@ -388,11 +363,11 @@ static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * b
             if (bitmap[endRange] & checkMask[j]) {
                 Prime value;
                 getPrimeFromMap(value, from, endRange, j);
-                if (prime_lt(value, endValue)) {
-                    int bytesWriten = prime_to_str(bufferWritePos, value);
-                    bufferWritePos[bytesWriten] = '\n';
-                    bufferWritePos += bytesWriten + 1;
-                    remainingBuffer -= bytesWriten + 1;
+                if (prime_lt(value, to)) {
+                    int bytesWritten = prime_to_str(bufferWritePos, value);
+                    bufferWritePos[bytesWritten] = '\n';
+                    bufferWritePos += bytesWritten + 1;
+                    remainingBuffer -= bytesWritten + 1;
                 }
             }
         }
@@ -447,7 +422,7 @@ static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned 
         for (int j = 1; j < 16; j+=2) {
             if (bitmap[endRange] & checkMask[j]) {
                 getPrimeFromMap(buffer[count], from, endRange, j);
-                if (prime_lt(buffer[count], endValue)) ++count;
+                if (prime_lt(buffer[count], to)) ++count;
             }
         }
     }
@@ -484,12 +459,12 @@ static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsig
     PrimeString s;
     if (prime_eq(from, tmp)) {
         if (disallow2) {
-            prime_set_num(tmp, 3);
-            prime_to_str(s, tmp);
+            strcpy(s, "3");
         }
         else {
             foundPrimes = 1;
             textSize = 2;
+            strcpy(s, "2");
         }
     }
     else {
@@ -578,7 +553,7 @@ static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsig
 static void process(Prime from, Prime to, int file) {
     Prime tmp;
 
-    if (verbose || (!silent && singleFile)) {
+    if (!silent) {
         PrimeString fromString;
         prime_to_str(fromString, from);
         PrimeString toString;

@@ -37,7 +37,7 @@ char * timeNow() {
 
 
 
-void stdLog(char * str, ...) {
+void stdLog(const char * str, ...) {
     int * threadNumPt = pthread_getspecific(threadNumKey);
     int threadNum = threadNumPt ? *threadNumPt : 0;
     flockfile(stderr);
@@ -52,7 +52,7 @@ void stdLog(char * str, ...) {
 
 
 
-void exitError(int num, int errorNumber, char * str, ...) {
+void exitError(int num, int errorNumber, const char * str, ...) {
     int * threadNumPt = pthread_getspecific(threadNumKey);
     int threadNum = threadNumPt ? *threadNumPt : 0;
     flockfile(stderr);
@@ -70,7 +70,7 @@ void exitError(int num, int errorNumber, char * str, ...) {
 
 
 
-void logWarning(int errorNumber, char * str, ...) {
+void logWarning(int errorNumber, const char * str, ...) {
     int * threadNumPt = pthread_getspecific(threadNumKey);
     int threadNum = threadNumPt ? *threadNumPt : 0;
     flockfile(stderr);

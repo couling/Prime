@@ -8,12 +8,24 @@
 #include <stdio.h>
 #include <string.h>
 
-// Set up the architecture
-
-
+// Set some defaults
 #ifndef PRIME_SIZE
     #define PRIME_SIZE 64
 #endif
+
+#if ! defined PRIME_ARCH_INT && ! defined PRIME_ARCH_GMP
+    #define PRIME_ARCH_INT
+#endif
+
+#ifndef PRIME_PROGRAM_NAME
+	#define PRIME_PROGRAM_NAME prime
+#endif
+
+#ifndef PRIME_PROGRAM_VERSION
+	#define PRIME_PROGRAM_VERSION unknown
+#endif
+
+// Set up the architecture
 
 #if PRIME_SIZE == 32
     #define PRIME_STRING_SIZE 11
@@ -27,15 +39,9 @@
     #error PRIME_SIZE is invalid
 #endif
 
-
-#if ! defined PRIME_ARCH_INT && ! defined PRIME_ARCH_GMP
-    #error PRIME_ARCH_ not set
-#endif
-
-
-#if PRIME_ARCH_INT
+#if defined PRIME_ARCH_INT
     #include "prime_64.h"
-#elif PRIME_ARCH_GMP
+#elif defined PRIME_ARCH_GMP
     #include "prime_gmp.h"
 #else
     #error PRIME_ARCH is invalid
@@ -64,6 +70,8 @@ extern char * fileName;
 extern int singleFile;
 extern int useStdout;
 extern int fileType;
+extern char ** inputFiles;
+extern int inputFileCount;
 
 #define FILE_TYPE_TEXT 't'
 #define FILE_TYPE_SYSTEM_BINARY 'b'

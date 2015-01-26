@@ -15,9 +15,9 @@ void runThread();
 char * timeNow();
 void mkdirs(char * formattedFileName);
 
-void stdLog(char * str, ...);
-void exitError(int num, int errorNumber, char * str, ...);
-void logWarning(int errorNumber, char * str, ...);
+void stdLog(const char * str, ...);
+void exitError(int num, int errorNumber, const char * str, ...);
+void logWarning(int errorNumber, const char * str, ...);
 
 void * mallocSafe(size_t bytes);
 void * reallocSafe(void * existing, size_t bytes);

@@ -230,7 +230,7 @@ int openFileForPrime(Prime from, Prime to) {
         }
         else {
             int * threadNumPt = pthread_getspecific(threadNumKey);
-            int threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
+            threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
         }
         if (outputProcessors[threadNum].processID != 0)
             exitError(1,0,"Thread Attempting to open more than one output processor simaltainiously.  This is not allowed.");

@@ -1,5 +1,6 @@
 #include "shared.h"
 
+#define _GNU_SOURCE 
 #include <time.h>
 
 #include <stdlib.h>
@@ -9,16 +10,18 @@
 #include <getopt.h>
 #include <stdarg.h>
 
+#include <fcntl.h> 
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/stat.h>
-
-// Environment variables
-extern char **environ;
+#include <sys/wait.h>
+#include <wordexp.h>
 
 // For thread local storage
 pthread_key_t threadNumKey;
 
+#define PIPE_READ 0
+#define PIPE_WRITE 1
 
 
 void initializeThreading() {
@@ -180,14 +183,18 @@ void execPipeProcess(ChildProcess * process, const char* szCommand, int in, int 
         if (process->stdout >= 0) close(process->stdout);
 
         // redirect stdin
-        if (dup2(aStdinPipe[PIPE_READ], STDIN_FILENO) == -1) {
-          exitError(-1, errno, "redirecting stdin failed");
-        }
+		if (STDIN_FILENO != in) {
+            if (dup2(in, STDIN_FILENO) == -1) {
+              exitError(-1, errno, "redirecting stdin failed");
+            }
+		}
 
         // redirect stdout
-        if (dup2(aStdoutPipe[PIPE_WRITE], STDOUT_FILENO) == -1) {
-          exitError(-1, errno, "redirecting stdout failed");
-        }
+		if (STDOUT_FILENO != out) {
+            if (dup2(out, STDOUT_FILENO) == -1) {
+              exitError(-1, errno, "redirecting stdout failed");
+            }
+		}
 
 
         // redirect stderr
@@ -204,7 +211,7 @@ void execPipeProcess(ChildProcess * process, const char* szCommand, int in, int 
         // run child process image
         // replace this with any exec* function find easier to use ("man exec")
         // environ is declared in unistd.h
-        nResult = execve(words.we_wordv[0], words.we_wordv, environ);
+        nResult = execvp(words.we_wordv[0], words.we_wordv);
 
         // if we get here at all, an error occurred, but we are in the child
         // process, so just exit

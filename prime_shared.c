@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -225,14 +226,14 @@ int openFileForPrime(Prime from, Prime to) {
     if (outputProcessor) {
         int threadNum;
         if (singleFile) {
-            theadNum = 0;
+            threadNum = 0;
         }
         else {
             int * threadNumPt = pthread_getspecific(threadNumKey);
             int threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
         }
-        if (fd != outputProcessors[threadNum].stdin)
-            exitError(1,0,"Thread Attempting to close file that doesn't belong to it");
+        if (outputProcessors[threadNum].processID != 0)
+            exitError(1,0,"Thread Attempting to open more than one output processor simaltainiously.  This is not allowed.");
 
         execPipeProcess(&(outputProcessors[threadNum]), outputProcessor, -1, file);
 
@@ -247,7 +248,7 @@ void closeFileForPrime(int fd) {
     if (outputProcessor) {
         int threadNum;
         if (singleFile) {
-            theadNum = 0;
+            threadNum = 0;
         }
         else {
             int * threadNumPt = pthread_getspecific(threadNumKey);
@@ -290,7 +291,7 @@ char * getVersion() {
 
 
 static void printUsage(int argC, char ** argV) {
-    fprintf(stderr,
+    fprintf(stdout,
             "Usage: \n"
             "  %s <options> [initialisation file]\n"
             "\n"
@@ -318,9 +319,9 @@ static void printUsage(int argC, char ** argV) {
             "  -p --use-stdout          Write to the stdout, will not create files\n"
             "  -k --clobber             Allow overwriting of existing files\n"
             "  -I --create-init-file    Equivalent to -bfs 3 -n init-%%9e9OG.dat\n"
-            "  -P --post-process-pipe   Pipes all content through a command (eg: gzip)\n"
-            "                           Can be specified as a single string and its arguments\n"
-            "                           will be spit\n"
+            "  -P --post-process        Pipes all content through a command (eg: gzip)\n"
+            "                           This is specified as a single string containing\n"
+			"                           both the command and its arguments\n"
             "\n"
             "General processing options:\n"
             "  -c --chunk-size          size of chunks to process\n"
@@ -423,7 +424,7 @@ void parseArgs(int argC, char ** argV) {
             { "directory", required_argument, 0, 'd'},
             { "file-name", required_argument, 0, 'n'},
             { "init-file", required_argument, 0, 'i'},
-            { "post-process-pipe", required_argument, 0, 'P'},
+            { "post-process", required_argument, 0, 'P'},
 #ifndef STRIP_LOGGING
             { "quiet", no_argument, 0, 'q' },
             { "verbose", no_argument, 0, 'v' },

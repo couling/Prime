@@ -252,7 +252,7 @@ void closeFileForPrime(int fd) {
         }
         else {
             int * threadNumPt = pthread_getspecific(threadNumKey);
-            int threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
+            threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
         }
         if (fd != outputProcessors[threadNum].stdin)
             exitError(1,0,"Thread Attempting to close file that doesn't belong to it");

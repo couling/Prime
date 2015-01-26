@@ -687,9 +687,7 @@ static void * processAllChunks(void * threadPt) {
             else {
                 int file = openFileForPrime(from, to);
                 process(from, to, file);
-                if (close(file)) {
-                    exitError(2, errno, "closing prime file reported error - contents may have been truncated");
-                }
+                closeFileForPrime(file);
             }
         }
         prime_cp(from,to);
@@ -702,10 +700,7 @@ static void * processAllChunks(void * threadPt) {
             else {
                 int file = openFileForPrime(from, endValue);
                 process(from, endValue, file);
-                if (close(file)) {
-                    exitError(2, errno, "closing prime file reported error - contents may have been truncated");
-                }
-
+                closeFileForPrime(file);
             }
         }
     }
@@ -788,8 +783,7 @@ int main(int argC, char ** argV) {
 
 
     if (singleFile) {
-        if (useStdout) theSingleFile = STDOUT_FILENO;
-        else theSingleFile = openFileForPrime(startValue, endValue);
+        theSingleFile = openFileForPrime(startValue, endValue);
     }
 
     // Initialise the primes array
@@ -816,9 +810,7 @@ int main(int argC, char ** argV) {
     // Close the file (this can take some time if it has been cached by the os)
     if (singleFile) {
         // This will close stdout if useStdOut was selected.
-        if (close(theSingleFile)) {
-            exitError(2, errno, "closing prime file reported error - contents may have been truncated");
-        }
+        closeFileForPrime(theSingleFile);
     }
     
     return 0;

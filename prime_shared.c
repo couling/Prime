@@ -35,6 +35,7 @@ static char * defaultFileNames [] = {
 int allowClobber;
 char * dirName;
 char * fileName;
+char * outputProcessor;
 char * initFileName;
 int useStdout;
 int singleFile;
@@ -48,6 +49,7 @@ int silent;
 int verbose;
 #endif
 
+static ChildProcess * outputProcessors;
 
 static void openFilesnprintf(char * base, char ** target, int bufferSize, const char * str, ...) {
     int allowableSize = bufferSize - (base - *target);
@@ -202,18 +204,62 @@ char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Pri
 
 
 int openFileForPrime(Prime from, Prime to) {
-    // Evaluate the file name
-    char formattedFileName[FILENAME_MAX];
-    formatFileName(formattedFileName, FILENAME_MAX, from, to);
+    int file;
+    if (useStdout) {
+        file = STDOUT_FILENO;
+    }
+    else {
+        // Evaluate the file name
+        char formattedFileName[FILENAME_MAX];
+        formatFileName(formattedFileName, FILENAME_MAX, from, to);
 
-    // Create necessary directories
-    mkdirs(formattedFileName);
+        // Create necessary directories
+        mkdirs(formattedFileName);
 
-    // Create the file
-    if (!silent) stdLog("Starting new prime file: %s", formattedFileName);
-    int file = open(formattedFileName, O_WRONLY | O_CREAT | ( allowClobber ? O_TRUNC : O_EXCL ), 0644);
-    if (file == -1) exitError(2, errno, "Could not create new file: %s", formattedFileName);
+        // Create the file
+        if (!silent) stdLog("Starting new prime file: %s", formattedFileName);
+        file = open(formattedFileName, O_WRONLY | O_CREAT | ( allowClobber ? O_TRUNC : O_EXCL ), 0644);
+        if (file == -1) exitError(2, errno, "Could not create new file: %s", formattedFileName);
+    }
+
+    if (outputProcessor) {
+        int threadNum;
+        if (singleFile) {
+            theadNum = 0;
+        }
+        else {
+            int * threadNumPt = pthread_getspecific(threadNumKey);
+            int threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
+        }
+        if (fd != outputProcessors[threadNum].stdin)
+            exitError(1,0,"Thread Attempting to close file that doesn't belong to it");
+
+        execPipeProcess(&(outputProcessors[threadNum]), outputProcessor, -1, file);
+
+        file = outputProcessors[threadNum].stdin;
+    }
     return file;
+}
+
+
+
+void closeFileForPrime(int fd) {
+    if (outputProcessor) {
+        int threadNum;
+        if (singleFile) {
+            theadNum = 0;
+        }
+        else {
+            int * threadNumPt = pthread_getspecific(threadNumKey);
+            int threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
+        }
+        if (fd != outputProcessors[threadNum].stdin)
+            exitError(1,0,"Thread Attempting to close file that doesn't belong to it");
+        closeAndWait(outputProcessors+threadNum);
+    }
+    else {
+        if (!close(fd)) exitError(1,errno, "Could not close output file, contents may have been truncated");
+    }
 }
 
 
@@ -272,6 +318,9 @@ static void printUsage(int argC, char ** argV) {
             "  -p --use-stdout          Write to the stdout, will not create files\n"
             "  -k --clobber             Allow overwriting of existing files\n"
             "  -I --create-init-file    Equivalent to -bfs 3 -n init-%%9e9OG.dat\n"
+            "  -P --post-process-pipe   Pipes all content through a command (eg: gzip)\n"
+            "                           Can be specified as a single string and its arguments\n"
+            "                           will be spit\n"
             "\n"
             "General processing options:\n"
             "  -c --chunk-size          size of chunks to process\n"
@@ -374,6 +423,7 @@ void parseArgs(int argC, char ** argV) {
             { "directory", required_argument, 0, 'd'},
             { "file-name", required_argument, 0, 'n'},
             { "init-file", required_argument, 0, 'i'},
+            { "post-process-pipe", required_argument, 0, 'P'},
 #ifndef STRIP_LOGGING
             { "quiet", no_argument, 0, 'q' },
             { "verbose", no_argument, 0, 'v' },
@@ -392,9 +442,9 @@ void parseArgs(int argC, char ** argV) {
     };
 
 #ifndef STRIP_LOGGING
-    static char * shortOptions = "s:e:c:d:n:i:x:qvfFpabBhkIV";
+    static char * shortOptions = "s:e:c:d:n:i:x:P:qvfFpabBhkIV";
 #else
-    static char * shortOptions = "s:e:c:d:n:i:x:fFpabBhkIV";
+    static char * shortOptions = "s:e:c:d:n:i:x:P:fFpabBhkIV";
 #endif
     int givenOption;
     // do not allow getopt_long to print an error to stdout if an invalid option is found
@@ -424,6 +474,7 @@ void parseArgs(int argC, char ** argV) {
         case 'f': useStdout = 0;              singleFile = 1;     break;
         case 'F': useStdout = 0;              singleFile = 0;     break;
         case 'p': useStdout = 1;              singleFile = 1;     break;
+        case 'P': outputProcessor = optarg;                       break;
         case 'a': fileType = FILE_TYPE_TEXT;                      break;
         case 'b': fileType = FILE_TYPE_SYSTEM_BINARY;             break;
         case 'B': fileType = FILE_TYPE_COMPRESSED_BINARY;         break;
@@ -479,5 +530,16 @@ void parseArgs(int argC, char ** argV) {
 
 
     if (threadCount < 1) exitError(1, 0, "invalid thread-count (%d). Must be 1 or more.", threadCount);
+
+    if (outputProcessor) {
+        if (singleFile) {
+            outputProcessors = mallocSafe(sizeof(ChildProcess));
+            memset(outputProcessors, 0, sizeof(ChildProcess));
+        }
+        else {
+            outputProcessors = mallocSafe(sizeof(ChildProcess) * threadCount);
+            memset(outputProcessors, 0, sizeof(ChildProcess) * threadCount);
+        }
+    }
 }
 

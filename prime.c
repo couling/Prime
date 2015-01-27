@@ -62,6 +62,7 @@ typedef void (* WritePrimeFunction)(Prime startValue, Prime endValue, size_t ran
 static void writePrimeText(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file);
 static void writePrimeSystemBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file );
 static void writePrimeCompressedBinary(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file );
+static void writePrimeStatsOnly(Prime startValue, Prime endValue, size_t range, unsigned char * bitmap, int file );
 
 static WritePrimeFunction writePrime = writePrimeText;
 
@@ -304,182 +305,20 @@ static void finalSelf() {
 
 
 
-static void writeSafe(int file, const void * buffer, size_t size) {
-    if (write(file, buffer, size) != size) exitError(1, errno, "Failed to write prime file");
-}
+static void getPrimeStats(Prime from, Prime to, size_t range, unsigned char * bitmap, size_t * retTextSize, size_t * retFoundPrimes) {
+    size_t textSize = *retTextSize;
+    size_t foundPrimes = *retFoundPrimes;
 
-
-
-static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, int file) {
-    char writeBuffer[WRITE_BUFFER_SIZE];
-    size_t remainingBuffer = WRITE_BUFFER_SIZE;
-    char * bufferWritePos = writeBuffer;
-
-    int threadNum;
-    if (singleFile && threadCount > 1) {
-        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
-        sem_wait(&threads[threadNum].writeSemaphore);
-    }
-
-    Prime prime_2;
-    prime_set_num(prime_2, 2);
-    if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
-        bufferWritePos[0] = '2';
-        bufferWritePos[1] = '\n';
-        bufferWritePos += 2;
-        remainingBuffer -= 2;
-    }
-    size_t endRange = range -1;
-    for (size_t i = 0; i < endRange; ++i) {
-        if (verbose && !(i & SCAN_DEBUG_MASK)) 
-            stdLog("Writing primes as text %02.2f%%", 100 * ((double) i)/((double) range));
-
-        if (bitmap[i]) {
-            if (remainingBuffer < PRIME_STRING_SIZE * bitCount[bitmap[i]]) {
-                writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
-                bufferWritePos = writeBuffer;
-                remainingBuffer = WRITE_BUFFER_SIZE;
-            }
-            for (int j = 1; j < 16; j+=2) {
-                if (bitmap[i] & checkMask[j]) {
-                    Prime value;
-                    getPrimeFromMap(value, from, i, j);
-                    int bytesWritten = prime_to_str(bufferWritePos, value);
-                    bufferWritePos[bytesWritten] = '\n';
-                    bufferWritePos += bytesWritten + 1;
-                    remainingBuffer -= bytesWritten + 1;
-                }
-            }
-        }
-    }
-
-    if (bitmap[endRange]) {
-       if (remainingBuffer < PRIME_STRING_SIZE * bitCount[bitmap[endRange]]) {
-            writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
-            bufferWritePos = writeBuffer;
-            remainingBuffer = WRITE_BUFFER_SIZE;
-        }
-        for (int j = 1; j < 16; j+=2) {
-            if (bitmap[endRange] & checkMask[j]) {
-                Prime value;
-                getPrimeFromMap(value, from, endRange, j);
-                if (prime_lt(value, to)) {
-                    int bytesWritten = prime_to_str(bufferWritePos, value);
-                    bufferWritePos[bytesWritten] = '\n';
-                    bufferWritePos += bytesWritten + 1;
-                    remainingBuffer -= bytesWritten + 1;
-                }
-            }
-        }
-    }
-
-    writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
-
-    if (singleFile && threadCount > 1) {
-        sem_post(threads[threadNum].nextThreadWriteSemaphore);
-    }
-}
-
-
-
-static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, int file) {
-    Prime buffer[WRITE_BUFFER_SIZE / sizeof(Prime)];
-    int count = 0;
-
-    int threadNum;
-    if (singleFile && threadCount > 1) {
-        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
-        sem_wait(&threads[threadNum].writeSemaphore);
-    }
-
-    prime_set_num(buffer[0], 2);
-    if (prime_le(from, buffer[0]) && prime_ge(to, buffer[0]) && !disallow2) {
-        count = 1;
-    }
-    size_t endRange = range -1;
-    for (size_t i = 0; i < endRange; ++i) {
-        if (!(i & SCAN_DEBUG_MASK)) {
-            if (verbose) stdLog("Writing primes %02.2f%%", 100 * ((double) i)/((double) range));
-        }
-        if (bitmap[i]) {
-            if (count + bitCount[bitmap[i]] > WRITE_BUFFER_SIZE / sizeof(Prime)) {
-                writeSafe(file, buffer, count * sizeof(Prime));
-                count = 0;
-            }
-            for (int j = 1; j < 16; j+=2) {
-                if (bitmap[i] & checkMask[j]) {
-                    getPrimeFromMap(buffer[count], from, i, j);
-                    ++count;
-                }
-            }
-        }
-    }
-    if (bitmap[endRange]) {
-        if (count + bitCount[bitmap[endRange]] >= WRITE_BUFFER_SIZE / sizeof(Prime)) {
-            writeSafe(file, buffer, count * sizeof(Prime));
-            count = 0;
-        }
-        for (int j = 1; j < 16; j+=2) {
-            if (bitmap[endRange] & checkMask[j]) {
-                getPrimeFromMap(buffer[count], from, endRange, j);
-                if (prime_lt(buffer[count], to)) ++count;
-            }
-        }
-    }
-    
-    writeSafe(file, buffer, count * sizeof(Prime));
-    
-    if (singleFile && threadCount > 1) {
-        sem_post(threads[threadNum].nextThreadWriteSemaphore);
-    }
-}
-
-
-
-static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, int file ) {
-    int threadNum;
-    if (singleFile && threadCount > 1) {
-        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
-        sem_wait(&threads[threadNum].writeSemaphore);
-    }
-    CompressedBinaryHeader header;
-    memset(&header, 0, sizeof(CompressedBinaryHeader));
-    snprintf(header.headerSize, sizeof(header.headerSize), "%zd", sizeof(CompressedBinaryHeader));
-    snprintf(header.signature, sizeof(header.signature), "Compressed Prime Binary: 1.0");
-    snprintf(header.dataBlockSize, sizeof(header.dataBlockSize), "%zd", range);
-    snprintf(header.skip, sizeof(header.skip), "2");
-    snprintf(header.fromToSize, sizeof(header.fromToSize), "%zd",sizeof(header.from));
-    snprintf(header.comments, sizeof(header.comments), "File Created on: %s\n\nCreated by...\n%s", timeNow(), getVersion());
-    
-    size_t foundPrimes = 0;
-    size_t textSize = 0;
-
-    Prime tmp;
-    prime_set_num(tmp, 2);
-    PrimeString s;
-    if (prime_eq(from, tmp)) {
-        if (disallow2) {
-            strcpy(s, "3");
-        }
-        else {
-            foundPrimes = 1;
-            textSize = 2;
-            strcpy(s, "2");
-        }
-    }
-    else {
-        prime_to_str(s, from);
-    }
-    snprintf(header.from, sizeof(header.from),"%s", s);
-    prime_to_str(s, to);
-    snprintf(header.to, sizeof(header.to), "%s",s);
-    
     // Count primes in the file
+    Prime tmp;
+    PrimeString toString;
     prime_sub_num(tmp, to, 1);
-    prime_to_str(s, tmp);
-    size_t stringSize = strlen(s);
+    prime_to_str(toString, tmp);
+    size_t stringSize = strlen(toString);
     size_t endRange = range -1;
-    if (strlen(header.from) == stringSize) {
+    PrimeString fromString;
+    prime_to_str(fromString, from);
+    if (strlen(fromString) == stringSize) {
         // Fast
         stringSize += 1;
         for (size_t i=0; i<endRange; ++i) {
@@ -537,12 +376,239 @@ static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsig
             }
         }
     }
+    *retTextSize = textSize;
+    *retFoundPrimes = foundPrimes;
+}
+
+
+
+static void writeSafe(int file, const void * buffer, size_t size) {
+    if (write(file, buffer, size) != size) exitError(1, errno, "Failed to write prime file");
+}
+
+
+
+static void writePrimeText(Prime from, Prime to, size_t range, unsigned char * bitmap, int file) {
+    char writeBuffer[WRITE_BUFFER_SIZE];
+    size_t remainingBuffer = WRITE_BUFFER_SIZE;
+    char * bufferWritePos = writeBuffer;
+
+    Prime prime_2;
+    prime_set_num(prime_2, 2);
+    if (prime_le(from, prime_2) && prime_ge(to, prime_2) && !disallow2) {
+        bufferWritePos[0] = '2';
+        bufferWritePos[1] = '\n';
+        bufferWritePos += 2;
+        remainingBuffer -= 2;
+    }
+    size_t endRange = range -1;
+
+    int threadNum;
+    if (singleFile && threadCount > 1) {
+        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
+        sem_wait(&threads[threadNum].writeSemaphore);
+    }
+
+    for (size_t i = 0; i < endRange; ++i) {
+        if (verbose && !(i & SCAN_DEBUG_MASK)) 
+            stdLog("Writing primes as text %02.2f%%", 100 * ((double) i)/((double) range));
+
+        if (bitmap[i]) {
+            if (remainingBuffer < PRIME_STRING_SIZE * bitCount[bitmap[i]]) {
+                writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
+                bufferWritePos = writeBuffer;
+                remainingBuffer = WRITE_BUFFER_SIZE;
+            }
+            for (int j = 1; j < 16; j+=2) {
+                if (bitmap[i] & checkMask[j]) {
+                    Prime value;
+                    getPrimeFromMap(value, from, i, j);
+                    int bytesWritten = prime_to_str(bufferWritePos, value);
+                    bufferWritePos[bytesWritten] = '\n';
+                    bufferWritePos += bytesWritten + 1;
+                    remainingBuffer -= bytesWritten + 1;
+                }
+            }
+        }
+    }
+
+    if (bitmap[endRange]) {
+       if (remainingBuffer < PRIME_STRING_SIZE * bitCount[bitmap[endRange]]) {
+            writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
+            bufferWritePos = writeBuffer;
+            remainingBuffer = WRITE_BUFFER_SIZE;
+        }
+        for (int j = 1; j < 16; j+=2) {
+            if (bitmap[endRange] & checkMask[j]) {
+                Prime value;
+                getPrimeFromMap(value, from, endRange, j);
+                if (prime_lt(value, to)) {
+                    int bytesWritten = prime_to_str(bufferWritePos, value);
+                    bufferWritePos[bytesWritten] = '\n';
+                    bufferWritePos += bytesWritten + 1;
+                    remainingBuffer -= bytesWritten + 1;
+                }
+            }
+        }
+    }
+
+    writeSafe(file, writeBuffer, WRITE_BUFFER_SIZE - remainingBuffer);
+
+    if (singleFile && threadCount > 1) {
+        sem_post(threads[threadNum].nextThreadWriteSemaphore);
+    }
+}
+
+
+
+static void writePrimeSystemBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, int file) {
+    Prime buffer[WRITE_BUFFER_SIZE / sizeof(Prime)];
+    int count = 0;
+
+    prime_set_num(buffer[0], 2);
+    if (prime_le(from, buffer[0]) && prime_ge(to, buffer[0]) && !disallow2) {
+        count = 1;
+    }
+    size_t endRange = range -1;
+
+    int threadNum;
+    if (singleFile && threadCount > 1) {
+        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
+        sem_wait(&threads[threadNum].writeSemaphore);
+    }
+
+    for (size_t i = 0; i < endRange; ++i) {
+        if (!(i & SCAN_DEBUG_MASK)) {
+            if (verbose) stdLog("Writing primes %02.2f%%", 100 * ((double) i)/((double) range));
+        }
+        if (bitmap[i]) {
+            if (count + bitCount[bitmap[i]] > WRITE_BUFFER_SIZE / sizeof(Prime)) {
+                writeSafe(file, buffer, count * sizeof(Prime));
+                count = 0;
+            }
+            for (int j = 1; j < 16; j+=2) {
+                if (bitmap[i] & checkMask[j]) {
+                    getPrimeFromMap(buffer[count], from, i, j);
+                    ++count;
+                }
+            }
+        }
+    }
+    if (bitmap[endRange]) {
+        if (count + bitCount[bitmap[endRange]] >= WRITE_BUFFER_SIZE / sizeof(Prime)) {
+            writeSafe(file, buffer, count * sizeof(Prime));
+            count = 0;
+        }
+        for (int j = 1; j < 16; j+=2) {
+            if (bitmap[endRange] & checkMask[j]) {
+                getPrimeFromMap(buffer[count], from, endRange, j);
+                if (prime_lt(buffer[count], to)) ++count;
+            }
+        }
+    }
+    
+    writeSafe(file, buffer, count * sizeof(Prime));
+    
+    if (singleFile && threadCount > 1) {
+        sem_post(threads[threadNum].nextThreadWriteSemaphore);
+    }
+}
+
+
+
+static void writePrimeCompressedBinary(Prime from, Prime to, size_t range, unsigned char * bitmap, int file ) {
+    CompressedBinaryHeader header;
+    memset(&header, 0, sizeof(CompressedBinaryHeader));
+    snprintf(header.headerSize, sizeof(header.headerSize), "%zd", sizeof(CompressedBinaryHeader));
+    snprintf(header.signature, sizeof(header.signature), "Compressed Prime Binary: 1.0");
+    snprintf(header.dataBlockSize, sizeof(header.dataBlockSize), "%zd", range);
+    snprintf(header.skip, sizeof(header.skip), "2");
+    snprintf(header.fromToSize, sizeof(header.fromToSize), "%zd",sizeof(header.from));
+    snprintf(header.comments, sizeof(header.comments), "File Created on: %s\n\nCreated by...\n%s", timeNow(), getVersion());
+    
+    size_t foundPrimes = 0;
+    size_t textSize = 0;
+
+    Prime tmp;
+    prime_set_num(tmp, 2);
+    PrimeString s;
+    if (prime_eq(from, tmp)) {
+        if (disallow2) {
+            strcpy(s, "3");
+        }
+        else {
+            foundPrimes = 1;
+            textSize = 2;
+            strcpy(s, "2");
+        }
+    }
+    else {
+        prime_to_str(s, from);
+    }
+    snprintf(header.from, sizeof(header.from),"%s", s);
+    prime_to_str(s, to);
+    snprintf(header.to, sizeof(header.to), "%s",s);
+    
+    getPrimeStats(from, to, range, bitmap, &textSize, &foundPrimes);
 
     snprintf(header.primeCount, sizeof(header.primeCount),"%zd", foundPrimes);
     snprintf(header.textSize, sizeof(header.textSize),"%zd", textSize);
     
+    int threadNum;
+    if (singleFile && threadCount > 1) {
+        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
+        sem_wait(&threads[threadNum].writeSemaphore);
+    }
+
     writeSafe(file, &header, sizeof(CompressedBinaryHeader));
     writeSafe(file, bitmap, range);
+
+    if (singleFile && threadCount > 1) {
+        sem_post(threads[threadNum].nextThreadWriteSemaphore);
+    }
+}
+
+
+
+static void writePrimeStatsOnly(Prime from, Prime to, size_t range, unsigned char * bitmap, int file ) {
+
+    size_t foundPrimes = 0;
+    size_t textSize = 0;
+
+    Prime tmp;
+    prime_set_num(tmp, 2);
+    PrimeString fromString;
+    if (prime_eq(from, tmp)) {
+        if (disallow2) {
+            strcpy(fromString, "3");
+        }
+        else {
+            foundPrimes = 1;
+            textSize = 2;
+            strcpy(fromString, "2");
+        }
+    }
+    else {
+        prime_to_str(fromString, from);
+    }
+    PrimeString toString;
+    prime_to_str(toString, to);
+
+    getPrimeStats(from, to, range, bitmap, &textSize, &foundPrimes);
+
+    char buffer[PRIME_STRING_SIZE * 6];
+    int bytesWritten = snprintf(buffer, PRIME_STRING_SIZE * 6, "From: %s To: %s Primes: %zd TextSize: %zd\n",
+            fromString, toString, foundPrimes, textSize);
+    if (bytesWritten >= PRIME_STRING_SIZE * 6 ) exitError(1, 0, "Output buffer overflow");
+
+    int threadNum;
+    if (singleFile && threadCount > 1) {
+        threadNum = (*((int*)pthread_getspecific(threadNumKey))) -1;
+        sem_wait(&threads[threadNum].writeSemaphore);
+    }
+
+    writeSafe(file, buffer, bytesWritten);
+
     if (singleFile && threadCount > 1) {
         sem_post(threads[threadNum].nextThreadWriteSemaphore);
     }
@@ -777,6 +843,10 @@ int main(int argC, char ** argV) {
 
         case FILE_TYPE_COMPRESSED_BINARY: 
             writePrime = writePrimeCompressedBinary;
+            break;
+
+        case FILE_TYPE_HEAD_ONLY:
+            writePrime = writePrimeStatsOnly;
             break;
     }
 

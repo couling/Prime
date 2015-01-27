@@ -76,6 +76,7 @@ extern int inputFileCount;
 #define FILE_TYPE_TEXT 't'
 #define FILE_TYPE_SYSTEM_BINARY 'b'
 #define FILE_TYPE_COMPRESSED_BINARY 'c'
+#define FILE_TYPE_HEAD_ONLY 'h'
 
 char * formatFileNamePart(char * formattedFileName, int bufferSize, const char * source, Prime from, Prime to);
 char * formatFileName( char * formattedFileName, int bufferSize, Prime from, Prime to);

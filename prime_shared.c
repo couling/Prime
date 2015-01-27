@@ -219,6 +219,9 @@ int openFileForPrime(Prime from, Prime to) {
     }
 
     if (outputProcessor) {
+        char formattedCommand[FILENAME_MAX];
+        formatFileNamePart(formattedCommand, FILENAME_MAX, outputProcessor, from, to);
+
         int threadNum;
         if (singleFile) {
             threadNum = 0;
@@ -228,9 +231,9 @@ int openFileForPrime(Prime from, Prime to) {
             threadNum = threadNumPt ? (*threadNumPt)-1 : 0;
         }
         if (outputProcessors[threadNum].processID != 0)
-            exitError(1,0,"Thread Attempting to open more than one output processor simaltainiously.  This is not allowed.");
+            exitError(1,0,"Thread Attempting to open more than one output processor simultaneously.  This is not allowed.");
 
-        execPipeProcess(&(outputProcessors[threadNum]), outputProcessor, -1, file);
+        execPipeProcess(&(outputProcessors[threadNum]), formattedCommand, -1, file);
 
         file = outputProcessors[threadNum].stdin;
     }
@@ -429,7 +432,8 @@ void parseArgs(int argC, char ** argV) {
             { "use-stdout", no_argument, 0, 'p'},
             { "text-out", no_argument, 0, 'a' },
             { "binary-out", no_argument, 0, 'b' },
-            { "compressed-out", no_argument, 0, 'B' },
+            { "compressed-out", no_argument, 0, 'B'},
+            { "stats-out", no_argument, 0, 'S'},
             { "clobber", no_argument, 0, 'k'},
             { "create-init-file", no_argument, 0, 'I'},
             { "help", no_argument, 0, 'h' },
@@ -474,6 +478,7 @@ void parseArgs(int argC, char ** argV) {
         case 'a': fileType = FILE_TYPE_TEXT;                      break;
         case 'b': fileType = FILE_TYPE_SYSTEM_BINARY;             break;
         case 'B': fileType = FILE_TYPE_COMPRESSED_BINARY;         break;
+        case 'S': fileType = FILE_TYPE_HEAD_ONLY;                 break;
         case 'd': dirName  = optarg;                              break;
         case 'n': fileName = optarg;                              break;
         case 'i': initFileName = optarg;                          break;

@@ -254,7 +254,7 @@ void closeFileForPrime(int fd) {
         closeAndWait(outputProcessors+threadNum);
     }
     else {
-        if (!close(fd)) exitError(1,errno, "Could not close output file, contents may have been truncated");
+        if (close(fd)) exitError(1,errno, "Could not close output file, contents may have been truncated");
     }
 }
 

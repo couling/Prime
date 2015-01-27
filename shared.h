@@ -8,6 +8,14 @@
 #include <stdarg.h>
 #include <pthread.h>
 
+#ifndef STRIP_LOGGING
+extern int silent;
+extern int verbose;
+#else
+#define silent 1
+#define verbose 0
+#endif
+
 extern pthread_key_t threadNumKey;
 void initializeThreading();
 void runThread();

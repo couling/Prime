@@ -23,6 +23,11 @@ pthread_key_t threadNumKey;
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
+#ifndef STRIP_LOGGING
+int silent;
+int verbose;
+#endif
+
 
 void initializeThreading() {
     pthread_key_create(&threadNumKey, NULL);
@@ -113,7 +118,7 @@ void mkdirs(char * formattedFileName) {
     for (char * cptr = formattedFileName; *cptr != '\0'; ++cptr) {
         if (*cptr == '/') {
             *cptr = '\0';
-            if (!mkdir(formattedFileName, S_IRWXU)) {
+            if (!mkdir(formattedFileName, S_IRWXU) && !silent) {
                 stdLog("Created directory for output: %s", formattedFileName);
             }
             *cptr = '/';
@@ -124,12 +129,19 @@ void mkdirs(char * formattedFileName) {
 
 
 void closeAndWait(ChildProcess * process) {
-    if (process->stdin >= 0 && close(process->stdin))
-        exitError(-1,errno, "Failed to close stdin for %s",  process->command);
-    if (process->stdout >= 0 && close(process->stdout))
-        exitError(-1,errno, "Failed to close stdout for %s", process->command);
+    if (process->stdin >= 0) {
+		if (close(process->stdin)) {
+        	exitError(-1,errno, "Failed to close stdin for %s",  process->command);
+		}
+	}
+    if (process->stdout >= 0) {
+		if (close(process->stdout)) {
+    	    exitError(-1,errno, "Failed to close stdout for %s", process->command);
+		}
+	}
 
     int status;
+	if (verbose) stdLog("waiting on post process %d", process->processID);
     if (waitpid(process->processID, &status, 0) == -1) {
         exitError(-1, errno, "Could not wait for %s", process->command);
     }
@@ -157,6 +169,7 @@ void execPipeProcess(ChildProcess * process, const char* szCommand, int in, int 
             exitError(-1, errno, "allocating pipe for child input redirect failed");
         }
         process->stdin = aStdinPipe[PIPE_WRITE];
+		fcntl(process->stdin, F_SETFD, fcntl(process->stdin, F_GETFD) | FD_CLOEXEC);
         in = aStdinPipe[PIPE_READ];
     }
     else {
@@ -168,6 +181,7 @@ void execPipeProcess(ChildProcess * process, const char* szCommand, int in, int 
             exitError(-1, errno, "allocating pipe for child input redirect failed");
         }
         process->stdout = aStdoutPipe[PIPE_READ];
+		fcntl(process->stdout, F_SETFD, fcntl(process->stdout, F_GETFD) | FD_CLOEXEC);
         out = aStdoutPipe[PIPE_WRITE];
     }
     else {
@@ -187,6 +201,7 @@ void execPipeProcess(ChildProcess * process, const char* szCommand, int in, int 
             if (dup2(in, STDIN_FILENO) == -1) {
               exitError(-1, errno, "redirecting stdin failed");
             }
+			close(in);
 		}
 
         // redirect stdout
@@ -194,19 +209,8 @@ void execPipeProcess(ChildProcess * process, const char* szCommand, int in, int 
             if (dup2(out, STDOUT_FILENO) == -1) {
               exitError(-1, errno, "redirecting stdout failed");
             }
+			close(out);
 		}
-
-
-        // redirect stderr
-        /*
-        maybe in another program
-        if (dup2(aStdoutPipe[PIPE_WRITE], STDERR_FILENO) == -1) {
-            exitError(-1, errno, "redirecting stderr failed");
-        }*/
-
-        // we're done with these; they've been duplicated to STDIN and STDOUT
-        close(in);
-        close(out);
 
         // run child process image
         // replace this with any exec* function find easier to use ("man exec")

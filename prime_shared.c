@@ -45,11 +45,6 @@ int fileType = FILE_TYPE_TEXT;
 char ** inputFiles;
 int inputFileCount;
 
-#ifndef STRIP_LOGGING
-int silent;
-int verbose;
-#endif
-
 static ChildProcess * outputProcessors;
 
 static void openFilesnprintf(char * base, char ** target, int bufferSize, const char * str, ...) {

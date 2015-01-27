@@ -86,6 +86,10 @@ The default file name depends on which suffixes have been used in \-s \-e and \-
 .B \-p \-\-use\-stdout
 Writes all output to the stdout instead of files.  Like with \-f each chunk will be written in order forcing threads to wate for each other.
 .TP
+.b \-P \-\-post\-process command
+Pushes all content through the specified command.  To pass through arugments then wrap the args with quotes along with the command. Eg:
+    prime \-\-post\-process 'gzip -9'
+.TP
 .B \-q \-\-quiet
 Switchs off all writing to the stderr except for errors.  Normally prime will write its progress, this flag turns that off.
 .B \-q

@@ -44,12 +44,10 @@ file    prime-gmp               /usr/bin/prime-gmp                      755
 file    prime-check             /usr/bin/prime-check                    755
 file    prime-decompress-64     /usr/bin/prime-decompress-64            755
 
-source  .
-
 link    prime-64                /usr/bin/prime     
 link    pirme-decompress-64     /usr/bin/prime-decompress
 
-file    build/prime.1.gz        /usr/share/man/man1/prime.1.gz          644
+file    prime.1.gz              /usr/share/man/man1/prime.1.gz          644
 link    prime.1.gz              /usr/share/man/man1/prime-slow.1.gz
 link    prime.1.gz              /usr/share/man/man1/prime-64.1.gz
 link    prime.1.gz              /usr/share/man/man1/prime-gmp.1.gz

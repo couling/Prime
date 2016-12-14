@@ -6,9 +6,9 @@ depends_prime_128= output.h prime_gmp.c prime_gmp.h prime_shared.c prime_shared.
 
 gcc_arch:=${shell gcc -dumpmachine | awk -F- '{print $$1}' }
 arch:=${or ${if ${filter ${gcc_arch},x86_64},amd64}, ${filter ${gcc_arch},x86}, ${if ${filter ${gcc_arch},arm},armhf}}
-version:=${shell git describe --tags --match v[0-9].[0-9]*'}
+version:=${shell git describe --tags --match v[0-9].[0-9]*}
 package:=${shell awk '/^Package:/ { print $$2 }' control}_${version}_${arch}.deb
-required_files:=${filter-out build/control,${shell awk -F':' '/^[ \t]*file:/ { print $$2 }' manifest}}
+required_files:=${filter-out build/control,${shell awk '$$1 == "file" { print $$2 }' manifest}}
 
 version_injection=-DPRIME_PROGRAM_NAME=$(subst build/,,$@) -DPRIME_PROGRAM_VERSION="${version} ${arch}"
 arch_64_injection=-DPRIME_ARCH_INT $(version_injection)

@@ -33,21 +33,21 @@
 #            creates a symbolic link on the target system. Source is relative to the target link
 #
 
-source  build
+source  .
 
 control control
 
-file    prime-slow              /usr/bin/prime-slow                     755
-file    prime-64                /usr/bin/prime-64                       755
-file    prime-64-nolog          /usr/bin/prime-64-nolog                 755
-file    prime-gmp               /usr/bin/prime-gmp                      755
-file    prime-check             /usr/bin/prime-check                    755
-file    prime-decompress-64     /usr/bin/prime-decompress-64            755
+file    build/prime-slow              /usr/bin/prime-slow                     755
+file    build/prime-64                /usr/bin/prime-64                       755
+file    build/prime-64-nolog          /usr/bin/prime-64-nolog                 755
+file    build/prime-gmp               /usr/bin/prime-gmp                      755
+file    build/prime-check             /usr/bin/prime-check                    755
+file    build/prime-decompress-64     /usr/bin/prime-decompress-64            755
 
-link    prime-64                /usr/bin/prime     
-link    pirme-decompress-64     /usr/bin/prime-decompress
+link    prime-64                      /usr/bin/prime     
+link    pirme-decompress-64           /usr/bin/prime-decompress
 
-file    prime.1.gz              /usr/share/man/man1/prime.1.gz          644
-link    prime.1.gz              /usr/share/man/man1/prime-slow.1.gz
-link    prime.1.gz              /usr/share/man/man1/prime-64.1.gz
-link    prime.1.gz              /usr/share/man/man1/prime-gmp.1.gz
+file    build/prime.1.gz              /usr/share/man/man1/prime.1.gz          644
+link    prime.1.gz                    /usr/share/man/man1/prime-slow.1.gz
+link    prime.1.gz                    /usr/share/man/man1/prime-64.1.gz
+link    prime.1.gz                    /usr/share/man/man1/prime-gmp.1.gz

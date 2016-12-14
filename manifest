@@ -1,42 +1,55 @@
 # Author Philip Couling
-# This file is used by the package-project script in the 
-# DpkgBuildTools project to build a build a dpkg package from this project
+# This file is used by the package-project script
 #
-# This quite simply lists which files from this project to put where.
-# Blank lines and lines starting with a '#' are ignored as comments and
-# white space. The special folder DEBIAN is used by dpkg-deb automatically 
+# This quite simply lists which files from this project to put where on the target system.
+# Blank lines and lines starting with a '#' are ignored as white space and comments and. 
+# The special folder DEBIAN is used by dpkg-deb automatically 
 # to control the project.
 #
-# Instructional lines are formed of four sections separated by colons ':'.
+# Instructions are formed of four sections separated by one or more spaces (NOT TABS)
+# Backslashes "\" may be used to add spaces to names Eg "My\ Documents"
+# Multiple tabs between two fields is allowable.
 #
-# action:source:target:file-mode
-# - action 
-#currently supports "file", "dir" and "link"
-#file adds a file from the project to the target system (dirs are created automatically).
-#       dir creates an empty dir and or changes it's mode.
-#link creates a symbolic link on the target system.
+# action    [source]  [target]  [file-mode]
+# Acttions:
+#       source <source>
+#            Changes the current source directory. This is very helpful when the manifest exists in a
+#            subdirectory of the project.  The path is always relative to the manifest file.
 #
-# - source 
-#link: must be a file relative to a file on the target system, this may be 
-#   a file provided by the project or one expected to exist already on the target system
-#   file: must be a file provided by the project being packaged
-#dir: file is ignored.
-# - target: must be a be a location RELATIVE to the root of the target system.
-#   This MUST NOT have a leading slash.
+#       control <source>
+#            Copies a file to DEBIAN/control. If SVN in installed and the current source file in 
+#            a working copy, the revision number will be appended to the version number. Also the size
+#            will be replaced by the actual size at the end of packaging.
 #
-control:build/control
+#       file <source> <target> <file-mode> 
+#            Adds a file or dir from the project to the target system (parent dirs are created
+#            automatically with a similar mode). This can also be used to place entire directories
+#       
+#       dir <target> <file-mode> 
+#            Creates an empty dir and changes it's mode. This is useful when the parent dir
+#            should have very different permissions to its children
+#
+#       link <source> <target>
+#            creates a symbolic link on the target system. Source is relative to the target link
+#
 
-file:build/prime-slow:/usr/bin/prime-slow:755
-file:build/prime-64:/usr/bin/prime-64:755
-file:build/prime-64-nolog:/usr/bin/prime-64-nolog:755
-file:build/prime-gmp:/usr/bin/prime-gmp:755
-file:build/prime-check:/usr/bin/prime-check:755
-file:build/prime-decompress-64:/usr/bin/prime-decompress-64:755
+source  build
 
-link:prime-64:/usr/bin/prime:ignored
-link:pirme-decompress-64:/usr/bin/prime-decompress:ignored
+control control
 
-file:build/prime.1.gz:/usr/share/man/man1/prime.1.gz:644
-link:prime.1.gz:/usr/share/man/man1/prime-slow.1.gz:ignored
-link:prime.1.gz:/usr/share/man/man1/prime-64.1.gz:ignored
-link:prime.1.gz:/usr/share/man/man1/prime-gmp.1.gz:ignored
+file    prime-slow              /usr/bin/prime-slow                     755
+file    prime-64                /usr/bin/prime-64                       755
+file    prime-64-nolog          /usr/bin/prime-64-nolog                 755
+file    prime-gmp               /usr/bin/prime-gmp                      755
+file    prime-check             /usr/bin/prime-check                    755
+file    prime-decompress-64     /usr/bin/prime-decompress-64            755
+
+source  .
+
+link    prime-64                /usr/bin/prime     
+link    pirme-decompress-64     /usr/bin/prime-decompress
+
+file    build/prime.1.gz        /usr/share/man/man1/prime.1.gz          644
+link    prime.1.gz              /usr/share/man/man1/prime-slow.1.gz
+link    prime.1.gz              /usr/share/man/man1/prime-64.1.gz
+link    prime.1.gz              /usr/share/man/man1/prime-gmp.1.gz

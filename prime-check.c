@@ -35,8 +35,13 @@ static int compareFiles(FILE * file1, FILE * file2) {
     Buffer buffer1;
     Buffer buffer2;
 
+    int correctCount = 0;
+    Buffer lastCorrect;
+    Buffer firstCorrect;
+
     if (fgets(buffer1, sizeof(Buffer), file1) && fgets(buffer2, sizeof(Buffer), file2)) {
         int comparison = compareString(buffer1, buffer2);
+
         while (1) {
             if (comparison > 0) {
 				diffFound = 1;
@@ -50,7 +55,9 @@ static int compareFiles(FILE * file1, FILE * file2) {
                     ++count;
 					strcpy(to, buffer2);
                 } while (comparison > 0);
+                if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
 				printDiff("gained", from, to, count);
+				correctCount =0;
                 if (comparison > 0) break;
             }
             else if (comparison < 0) {
@@ -65,10 +72,17 @@ static int compareFiles(FILE * file1, FILE * file2) {
                     ++count;
 					strcpy(to, buffer1);
                 } while (comparison < 0);
+                if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
                 printDiff("missed", from, to, count);
+                correctCount = 0;
                 if (comparison < 0) break;
             }
             else {
+            	if (!correctCount) {
+            		strcpy(firstCorrect, buffer1);
+            	}
+            	strcpy(lastCorrect, buffer1);
+            	correctCount++;
                 if (!fgets(buffer1, sizeof(Buffer), file1)) break;
                 if (!fgets(buffer2, sizeof(Buffer), file2)) break;
                 comparison = compareString(buffer1, buffer2);
@@ -87,6 +101,7 @@ static int compareFiles(FILE * file1, FILE * file2) {
 		}
 		if (count != 0) {
 			diffFound = 1;
+			if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
 			printDiff("gained", from, to, count);
 		}
     }
@@ -101,6 +116,7 @@ static int compareFiles(FILE * file1, FILE * file2) {
 		}
 		if (count != 0) {
 			diffFound = 1;
+			if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
             printDiff("missed", from, to, count);
 		}
     }

@@ -103,6 +103,7 @@ static int compareFiles(FILE * file1, FILE * file2) {
 			diffFound = 1;
 			if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
 			printDiff("gained", from, to, count);
+			correctCount = 0;
 		}
     }
     else if (feof(file2)) {
@@ -118,8 +119,10 @@ static int compareFiles(FILE * file1, FILE * file2) {
 			diffFound = 1;
 			if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
             printDiff("missed", from, to, count);
+            correctCount = 0;
 		}
     }
+    if (correctCount) printDiff("correct", firstCorrect, lastCorrect, correctCount);
 	return diffFound;
 }
 

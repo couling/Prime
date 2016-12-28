@@ -40,8 +40,11 @@ build/prime-check: prime-check.c $(depends_basic)
 build/prime-decompress-64: prime-decompress.c output.h $(depends_prime_64)
 	gcc -o $@ $(flags) $(c_files) $(arch_64_injection) $(lib_basic) $(lib_64)
 
-build/prime.1.gz: prime.1
-	gzip -9c prime.1 > build/prime.1.gz 
+build/prime.1: prime.1.md makefile
+	ronn -roff --manual='User Commands' --date='2013-10-01' --organization='Philip Couling' < prime.1.md > build/prime.1 
+
+build/prime.1.gz: build/prime.1
+	gzip -9 --force --keep build/prime.1
 
 build/control: control | build
 	cp control build/control

@@ -33,7 +33,7 @@ Sets the output to a highly compressed format.  Each byte represents 8 odd numbe
 * `-c` _size_  `--chunk-size` _size_:
 Sets the chunk size to be processed.  This should be large enough to improve performance but not so large that requires too much RAM.  Each thread will require the chunk-size / 16 bytes of RAM to function. Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectively.  The default chunk size is 1G (1,000,000,000) and requires 62,500,000 bytes of RAM per thread.  Note that the chunk size will also be used to break up the files if the
 
-* `-d` _directory_  `--dir` <directory>:
+* `-d` _directory_  `--dir` _directory_:
 Specifies the directory to place the output files.  Note that specifying an absolute path in the file name (one starting with /) will override this.  By default output files are placed in the current working directory. 
 
 * `-e` _num_ `--end` _num_:  

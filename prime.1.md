@@ -18,9 +18,6 @@ Generates prime numbers very rapidly.
 `prime-gmp` - A little slower than prime-64 but is based on the same technique.  Operations are carried out using low level `libgmp` functions instead of native 64 bit integers.  As a result it can work in 128 bits.  The main limitation to the maximum prime is based on the size of initialization.  When using self initialisation, this is generated in a single threaded fassion and in process memory.  As an alternative you can generate a very large initialisation file which can then be memory mapped. See `-i` flag.
 
 ## OPTIONS
-*  `-I` `--create-init-file`:  
-Quick way to create an init file.  Equivalent to `-bfs 3`.
-
 *  `-a` `--text-out`:
 Sets the output file mode to ASKII text.  Each prime number will be written on its own line.  This is default so is only really there to override the `-b` or `-B` flag.  Which ever of them is last will take precident.
 
@@ -33,46 +30,58 @@ Sets the output file mode to binary.  This can be used to generate initialisatio
 * `-B` `--compressed-out`:
 Sets the output to a higly compressed format.  Each byte represents 8 odd numbers starting with the lowest in the requested range.  The low segnificant bit represents the smallest up to the high segnificance bit representing the largest.  Each bit will be 1 if the number is prime or 0 if it is not prime.  This is by far the most compressed format and is also the fastest to generate.
 
-  * `-c` <size>  `--chunk-size` <size>:
-Sets the chunk size to be processed.  This should be larg enough to improve performance but not so large that requires too much RAM.  Each thread will require the chunksize ÷ 16 bytes of RAM to function. Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The default chunk size is 1G (1,000,000,000) and requires 62,500,000 bytes of RAM per thread.  Note that the chunk size will also be used to break up the files if the
+* `-c` <size>  `--chunk-size` <size>:
+Sets the chunk size to be processed.  This should be larg enough to improve performance but not so large that requires too much RAM.  Each thread will require the chunksize / 16 bytes of RAM to function. Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The default chunk size is 1G (1,000,000,000) and requires 62,500,000 bytes of RAM per thread.  Note that the chunk size will also be used to break up the files if the
 
-  * `-d` <directory>  `--dir` <directory>:
+* `-d` <directory>  `--dir` <directory>:
 Specifies the directory to place the output files.  Note that specifying an absolute path in the file name (one starting with /) will override this.  By default output files are placed in the current working directory. 
 
-  * `-e` <num> `--end` <num>:  
+* `-e` <num> `--end` <num>:  
 Sets the end of the search range.  Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The choice of suffix will affect the default naming convention of the output file.
  
-  * `-f` `--multi-file`:
+* `-f` `--multi-file`:
 Sets prime to write to files.  Each chunk will be written to its own file.  This is recommended when multithreading to reduce the contention between threads.
 
-  * `-F` `--single-file`:
+* `-F` `--single-file`:
 Sets prime to write to a single file instead multiple or stdout. All chunks will be written in order which will slow the program down.  It is better to use `--multi-file` for speed.
 
-  * `-i` `--create-init-file`:
-Equivalent to `--compressed-out --single-file --start 3 --name init-%9e9OG.dat`.
+* `-h` `--help`:
+Prints out command help
 
-  * `-k` `--clobber`:
+* `-i` <init file> `init-file` <init file>:
+Use init file
+
+* `-I` `--create-init-file`:
+Equivalent to `--binary-out --single-file --start 3 --name init-%9e9OG.dat`.
+
+* `-k` `--clobber`:
 Allow overwriting of existing files.  By default prime will cause the job to abort.
 
-  * `-l` <num> `--low-prime-max` <num>: 
+* `-l` <num> `--low-prime-max` <num>: 
 Set the size of the largest "low prime".  Default is 19.  Max is 23 due to memory constraints.  Low primes require a bitmap to be created and shared between the threads.  The size of the bitmap is the product of every low prime (excluding 2), so the default "19" causes a bitmap of 3*5*7*11*13*17*19 = 4,849,845 = 4.63MiB.  The max of 23 requires 2.18GiB.
 
 * `-n` <name> `--file-name` <name>:
-Sets the name pattern for the output file name.  See FIKE NAME FORMATS
+Sets the name pattern for the output file name.  See FILE NAME FORMATS
 
 * `-p` `--use-stdout`:
 Writes all output to the stdout instead of files.  Like with `-f` each chunk will be written in order forcing threads to wate for each other.
 
-* `-P` `--post-process` <command>
+* `-P` `--post-process` <command>:
 Pushes all content through the specified command.  To pass through arugments then wrap the args with quotes along with the command. Eg: `prime --post-process 'gzip -9'`
 
-* `-q` `--quiet`
+* `-q` `--quiet`:
 Switchs off all writing to the stderr except for errors.  Normally prime will write its progress, this flag turns that off.
 
-`-s` <num> `--start` <num>:
+* `-s` <num> `--start` <num>:
 Sets the start of the search range. Suffix this with K,M,G,T to multiply by one thousand, million, billion or trillion respectivly.  The choice of suffix will affect the default naming convention of the output file.
 
-`-x` <n>  `--threads` <n>
+* `-S` `--stats-out`:
+Scans for primes but instead of writing all primes out, just the stats for the chunk are written.
+
+* `-v` `--verbose`:
+Switches on full verbose logging to stderr.  This will be overridden by `-q`.
+
+* `-x` <n>  `--threads` <n>:
 Specifies the number of threads to use (default 1).
 
 ## FILE NAME FORMATS

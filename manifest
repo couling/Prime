@@ -35,7 +35,7 @@
 
 source  .
 
-control control
+control build/control
 
 file    build/prime-slow              /usr/bin/prime-slow                     755
 file    build/prime-64                /usr/bin/prime-64                       755
@@ -43,7 +43,7 @@ file    build/prime-64-nolog          /usr/bin/prime-64-nolog                 75
 file    build/prime-gmp               /usr/bin/prime-gmp                      755
 file    build/prime-check             /usr/bin/prime-check                    755
 file    build/prime-decompress-64     /usr/bin/prime-decompress-64            755
-file    build/prime-cgi-decode-64     /usr/bin/prime-decompress-64            755
+file    build/prime-cgi-decode-64     /usr/bin/prime-cgi-decode-64            755
 
 link    prime-64                      /usr/bin/prime     
 link    pirme-decompress-64           /usr/bin/prime-decompress

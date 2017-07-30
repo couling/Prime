@@ -1,6 +1,5 @@
 #include "shared.h"
 
-#define _GNU_SOURCE 
 #include <time.h>
 
 #include <stdlib.h>

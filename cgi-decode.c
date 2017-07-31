@@ -229,7 +229,7 @@ int readHeader(int file, CompressedBinaryHeader * header, const char * fileName)
 
 static void printHeader(int inputFile, int output, const char * fileName) {
     CompressedBinaryHeader header;
-    long long totalExpectedTextSize = stringToLongLong(header.textSize);
+    long long totalExpectedTextSize = 0;
     while (readHeader(inputFile, &header, fileName)) {
         long long expectedTextSize = stringToLongLong(header.textSize);
         long long bufferSize = stringToLongLong(header.dataBlockSize);

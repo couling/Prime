@@ -278,15 +278,8 @@ static int openFile(const char * fileName) {
 int main (int argC, char ** argV) {
     parseArgs(argC, argV);
 
-    // Use STDIN
-    if (inputFileCount == 0) {
-        decompress(STDIN_FILENO, "stdin");
-    }
-    else {
-        for (int fileNum = 0; fileNum < inputFileCount; ++fileNum) {
-            decompress(openFile(inputFiles[fileNum]), inputFiles[fileNum]);
-        }
-    }
+	const char * file = getenv("PATH_TRANSLATED");
+    decompress(openFile(file), file);
 
     return 0;
 }

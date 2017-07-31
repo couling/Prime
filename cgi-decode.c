@@ -241,8 +241,15 @@ static void printHeader(int inputFile, int output, const char * fileName) {
     
     lseek(inputFile, 0, SEEK_SET); 
     
-    char buffer [200];
-    size_t toPrint = snprintf(buffer, 200, "Content-Type:text/html;charset=utf-8\nContent-Length: %lld\n\n", totalExpectedTextSize);
+    char buffer [4096];
+	const char * fileNameBase = strrchr(fileName,'/');
+	if (!fileNameBase) fileNameBase = fileName;
+	else fileNameBase++;
+    size_t toPrint = snprintf(buffer, 200, 
+					"Content-Type:text/plain;charset=utf-8\r\n"
+					"Content-Length: %lld\r\n"
+					"Content-Disposition: attachment; filename=%s.txt;\r\n"
+					"\r\n", totalExpectedTextSize, fileNameBase);
     writeSafe(output, buffer, toPrint);
 }
 
